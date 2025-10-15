@@ -1,0 +1,8 @@
+{
+  "name": "hft-exchange-simulator",
+  "version": "0.1.0",
+  "dependencies": [
+    "boost-asio",
+    "boost-system"
+  ]
+}

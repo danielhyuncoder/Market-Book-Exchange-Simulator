@@ -1,0 +1,3 @@
+C:/Projects/HFTExchangeSimulator/server/build/CMakeFiles/HFTExchangeSimulator.dir
+C:/Projects/HFTExchangeSimulator/server/build/CMakeFiles/ALL_BUILD.dir
+C:/Projects/HFTExchangeSimulator/server/build/CMakeFiles/ZERO_CHECK.dir
