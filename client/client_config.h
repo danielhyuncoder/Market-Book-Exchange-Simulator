@@ -7,3 +7,9 @@
 
 // DON'T EDIT
 #define LD long double
+#define LL long long
+
+// Define TCP message byte sizes
+#define SYMBOL_BYTES 4
+#define QTY_BYTES 8
+#define PRICE_BYTES 8

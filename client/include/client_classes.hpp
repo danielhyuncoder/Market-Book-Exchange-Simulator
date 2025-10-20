@@ -5,6 +5,7 @@
 #include <memory>
 #include <array>
 #include "../client_config.h"
+#include "./conversions.hpp"
 
 using boost::asio::ip::tcp;
 namespace CLIENT_PACKAGE {
@@ -19,23 +20,23 @@ namespace CLIENT_PACKAGE {
              tcp::endpoint server_endpoint(boost::asio::ip::make_address(SERVER_IP_ADDRESS), SERVER_PORT);
              this->socketPtr->connect(server_endpoint);
          };
-         void SendOrder(const std::string& ORDER_TYPE, const std::string& SYMBOL, LD price_level, LD QTY){
-             std::string tcp_message = ORDER_TYPE + "|" + SYMBOL + "|" + std::to_string(price_level) + "|" +std::to_string(QTY);
+         void SendOrder(const std::string& ORDER_TYPE, const std::string& SYMBOL, LL price_level, LL QTY){
+             std::string tcp_message = "S" + ORDER_TYPE + SYMBOL +CONVERSION_PACKAGE::number_to_bytes(QTY, QTY_BYTES)+ CONVERSION_PACKAGE::number_to_bytes(price_level, PRICE_BYTES);
              boost::asio::write(*this->socketPtr, boost::asio::buffer(tcp_message));
          }
          void start(){
-            this->OrderConfirmationRecievedListener();
+            this->ClientTCPListener();
             this->io_context.run();
          }
          private:
-         void OrderConfirmationRecievedListener(){
+         void ClientTCPListener(){
             auto self_ptr = shared_from_this();
             this->socketPtr->async_read_some(boost::asio::buffer(data), [this, self_ptr](boost::system::error_code ec, size_t bytes_read) {
                 if (!ec){
                     std::string msg(data.data(), bytes_read);
                     std::cout << msg << std::endl;
                 }
-                OrderConfirmationRecievedListener();
+                ClientTCPListener();
             });
          } 
          boost::asio::io_context io_context;

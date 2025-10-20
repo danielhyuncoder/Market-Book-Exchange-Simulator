@@ -5,8 +5,11 @@
 #include <vector>
 #include <memory>
 #include <array>
-#include "../server_config.h"
+#include <unordered_map>
+#include <atomic>
 
+#include "../server_config.h"
+#include "conversions.hpp"
 using boost::asio::ip::tcp;
 
 namespace SERVER_PACKAGE {
@@ -20,6 +23,7 @@ namespace SERVER_PACKAGE {
       }
 
       private:
+
       void readListener() {
         auto self = shared_from_this(); 
         socket_.async_read_some(
@@ -30,7 +34,9 @@ namespace SERVER_PACKAGE {
                     std::cout << msg << std::endl;
                     try{
                          auto remote = socket_.remote_endpoint();
-                         boost::asio::write(socket_, boost::asio::buffer("ORDER RECIEVED " + msg));
+                         CONVERSION_PACKAGE::DECODE_SEND_ORDER(msg);
+                         boost::asio::write(socket_, boost::asio::buffer("ORDER CONFIRMED|"));
+
                     } catch (std::exception& err){
                        
                     }
@@ -39,9 +45,9 @@ namespace SERVER_PACKAGE {
                 readListener();
             });
       }
-
       tcp::socket socket_;
-      std::array<char, 1024> data_;
+      std::array<char, 2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES> data_;
+      
     };
 
     class MatchingEngine {
@@ -60,6 +66,7 @@ namespace SERVER_PACKAGE {
                 this->engineListener(); 
             });
          }
+
          tcp::acceptor acceptor;
     };
 
@@ -67,6 +74,7 @@ namespace SERVER_PACKAGE {
          public:
          ServerHandler(){
              MatchingEngine engine(this->io_context);
+             
              for (int i =0;i<NUM_THREADS;i++){
                 this->threads.emplace_back([&]{
                    io_context.run();
