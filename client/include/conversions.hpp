@@ -5,10 +5,11 @@
 
 class CONVERSION_PACKAGE {
     public:
-    static std::string number_to_bytes(LL number, const int num_bytes){
+    template<typename N>
+    static std::string number_to_bytes(N number, const int num_bytes){
         std::string msg="";
         while (number>0){
-            LL record = number & 255;
+            N record = number & 255;
             msg+=static_cast<unsigned char>(record);
             number = number >> 8;
         }
@@ -18,4 +19,9 @@ class CONVERSION_PACKAGE {
         std::reverse(msg.begin(), msg.end());
         return msg;
     };
+    static void pad_message(std::string& str){
+        while (str.length()<2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES){
+            str+=' ';
+        }
+    }
 };

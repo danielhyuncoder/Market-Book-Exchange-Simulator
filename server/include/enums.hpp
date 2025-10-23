@@ -1,6 +1,6 @@
 #pragma once
 #include <iostream>
-
+#include "../server_config.h"
 #define LL long long
 #define LD long double
 
@@ -14,10 +14,11 @@ enum class REQUEST_TYPE {
     KILL_ORDER=2,
 };
 
-struct ORDER alignas(64) {
+struct alignas(64) ORDER {
     LL price_level =0, qty =0;
-    std::string symbol ="";
+    char symbol[SYMBOL_BYTES];
     ORDER_TYPE order_type;
     REQUEST_TYPE request_type;
-    LL order_id;
+    LL order_id=0;
+    LL del_id=0;
 };
