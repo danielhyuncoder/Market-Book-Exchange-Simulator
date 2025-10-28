@@ -22,3 +22,9 @@
 // Define Developer Debug
 #define CONVERSION_LOGS false
 
+// Define Error Codes
+#define MALFORMED_REQUEST 100
+#define SYMBOL_NOT_FOUND 101
+#define INVALID_QUANTITY 102
+#define INVALID_PRICE 103
+#define INVALID_ORDER_ID 104

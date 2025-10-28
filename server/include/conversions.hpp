@@ -3,6 +3,8 @@
 #include "enums.hpp"
 #include "../server_config.h"
 
+
+
 class CONVERSION_PACKAGE {
     public:
     static LL byte_conversion(std::string& message, int begin, int end){
@@ -49,5 +51,19 @@ class CONVERSION_PACKAGE {
         order.del_id=byte_conversion(message, SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+1,  SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES+1);
         if (CONVERSION_LOGS) std::cout << "MODIFY_ORDER_CONVERSION: " << order.qty  << " : " << order.price_level << " : " << order.del_id << std::endl;
         return std::move(order);
+    };
+    template<typename N>
+    static constexpr std::string number_to_bytes(N number, const int num_bytes){
+        std::string msg="";
+        while (number>0){
+            N record = number & 255;
+            msg+=static_cast<unsigned char>(record);
+            number = number >> 8;
+        }
+        while (msg.length()<num_bytes) {
+            msg += static_cast<unsigned char>(0);
+        }
+        std::reverse(msg.begin(), msg.end());
+        return msg;
     };
 };

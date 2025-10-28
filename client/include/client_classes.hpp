@@ -21,17 +21,17 @@ namespace CLIENT_PACKAGE {
              this->socketPtr->connect(server_endpoint);
          };
          void SendOrder(const std::string& ORDER_TYPE, const std::string& SYMBOL, LL price_level, LL QTY){
-             std::string tcp_message = "S" + ORDER_TYPE + SYMBOL +CONVERSION_PACKAGE::number_to_bytes<LL>(QTY, QTY_BYTES)+ CONVERSION_PACKAGE::number_to_bytes<LL>(price_level, PRICE_BYTES);
+             std::string tcp_message = "O" + ORDER_TYPE + SYMBOL +CONVERSION_PACKAGE::number_to_bytes<LL>(QTY, QTY_BYTES)+ CONVERSION_PACKAGE::number_to_bytes<LL>(price_level, PRICE_BYTES);
              CONVERSION_PACKAGE::pad_message(tcp_message);
              boost::asio::write(*this->socketPtr, boost::asio::buffer(tcp_message));
          }
          void SendModify(const std::string& ORDER_TYPE, const std::string& SYMBOL, LL order_id, LL price_level, LL QTY){
-             std::string tcp_message = "M" + ORDER_TYPE+ SYMBOL + CONVERSION_PACKAGE::number_to_bytes<LL>(QTY, QTY_BYTES)+ CONVERSION_PACKAGE::number_to_bytes<LL>(price_level, PRICE_BYTES) + CONVERSION_PACKAGE::number_to_bytes<LL>(order_id, ID_BYTES);
+             std::string tcp_message = "U" + ORDER_TYPE+ SYMBOL + CONVERSION_PACKAGE::number_to_bytes<LL>(QTY, QTY_BYTES)+ CONVERSION_PACKAGE::number_to_bytes<LL>(price_level, PRICE_BYTES) + CONVERSION_PACKAGE::number_to_bytes<LL>(order_id, ID_BYTES);
              CONVERSION_PACKAGE::pad_message(tcp_message);
              boost::asio::write(*this->socketPtr, boost::asio::buffer(tcp_message));
          }
          void SendKill(const std::string& SYMBOL, LL order_id){
-             std::string tcp_message = "K" + SYMBOL + CONVERSION_PACKAGE::number_to_bytes<LL>(order_id, ID_BYTES);
+             std::string tcp_message = "X" + SYMBOL + CONVERSION_PACKAGE::number_to_bytes<LL>(order_id, ID_BYTES);
              CONVERSION_PACKAGE::pad_message(tcp_message);
              boost::asio::write(*this->socketPtr, boost::asio::buffer(tcp_message));
          }

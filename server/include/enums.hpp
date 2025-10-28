@@ -1,8 +1,13 @@
 #pragma once
 #include <iostream>
+#include <memory>
 #include "../server_config.h"
 #define LL long long
 #define LD long double
+
+namespace SERVER_PACKAGE {
+    class MatchingSession;
+};
 
 enum class ORDER_TYPE{ 
     SELL=0,BUY=1
@@ -21,4 +26,5 @@ struct alignas(64) ORDER {
     REQUEST_TYPE request_type;
     LL order_id=0;
     LL del_id=0;
+    SERVER_PACKAGE::MatchingSession* ptr;
 };
