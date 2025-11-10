@@ -410,6 +410,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="C:\Projects\HFTExchangeSimulator\server\src\main.cpp" />
+    <ClCompile Include="C:\Projects\HFTExchangeSimulator\server\include\server_classes.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>

@@ -9,13 +9,19 @@
 #include <unordered_map>
 #include <atomic>
 #include <mutex>
-
+#include <deque>
 #include "../server_config.h"
 #include "conversions.hpp"
 #include "enums.hpp"
-#include "order_book.hpp"
+#include <boost/lockfree/queue.hpp>
 
 using boost::asio::ip::tcp;
+using boost::asio::ip::udp;
+
+namespace ORDER_BOOK_PACKAGE{
+    class MARKET_BOOK;
+};
+
 
 namespace SERVER_PACKAGE {
     class MatchingSession : public std::enable_shared_from_this<MatchingSession> {
@@ -27,49 +33,21 @@ namespace SERVER_PACKAGE {
         readListener(market_book);
       }
       void writeToClient(std::string msg){
-         std::lock_guard<std::mutex> guard(this->mtx);
-         boost::asio::write(this->socket_, boost::asio::buffer(msg));
+        boost::asio::write(this->socket_, boost::asio::buffer(msg));
+
       }
       private:
+
       bool simpleReject(ORDER& current_order){
           if (current_order.price_level<=0) {
-              boost::asio::write(socket_, boost::asio::buffer("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(INVALID_PRICE, 4)));return true;
+              this->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(INVALID_PRICE, 4));return true;
           } 
           if (current_order.qty<=0){
-              boost::asio::write(socket_, boost::asio::buffer("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(INVALID_QUANTITY, 4)));return true;
+              this->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(INVALID_QUANTITY, 4));return true;
           }
           return false;
       }
-      void readListener(ORDER_BOOK_PACKAGE::MARKET_BOOK& market_book) {
-        auto self = shared_from_this(); 
-        socket_.async_read_some(
-            boost::asio::buffer(data_, 2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES),
-            [this, self, &market_book](boost::system::error_code ec, size_t bytes_read) {
-                if (!ec) {
-                    std::string msg(data_.data(), bytes_read);
-                    ORDER current_order;
-                    current_order.ptr=shared_from_this().get();
-                    if (msg[0]=='O'){
-                      current_order=CONVERSION_PACKAGE::DECODE_SEND_ORDER(msg);
-                      bool s = simpleReject(current_order);
-                      if (s) {readListener(market_book);return;}
-                      this->writeToClient("A"+msg.substr(1, (int)msg.length()-1));
-                    } else if (msg[0]=='U'){
-                      current_order=CONVERSION_PACKAGE::DECODE_MODIFY_ORDER(msg);
-                      bool s = simpleReject(current_order);
-                      if (s) {readListener(market_book);return;}
-                    } else if (msg[0]=='X'){
-                      current_order=CONVERSION_PACKAGE::DECODE_KILL_ORDER(msg);
-                    } else {
-                      this->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(MALFORMED_REQUEST, 4));readListener(market_book); return;
-                    }
-                    current_order.order_id=market_book.assign_order_id();
-                    market_book.market_orders->push(std::move(current_order));
-  
-                }
-                readListener(market_book);
-            });
-      }
+      void readListener(ORDER_BOOK_PACKAGE::MARKET_BOOK& market_book);
       tcp::socket socket_;
       std::array<char, 2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES> data_;
       std::mutex mtx;
@@ -78,42 +56,40 @@ namespace SERVER_PACKAGE {
     class MatchingEngine {
          public:
          MatchingEngine(boost::asio::io_context& io_context_ref, ORDER_BOOK_PACKAGE::MARKET_BOOK& market_book) : acceptor(io_context_ref, tcp::endpoint(tcp::v4(), SERVER_PORT)){
-            this->engineListener(market_book);
+            this->engineListener(market_book, io_context_ref);
          }
          private:
-         void engineListener( ORDER_BOOK_PACKAGE::MARKET_BOOK& market_book){
+         void engineListener( ORDER_BOOK_PACKAGE::MARKET_BOOK& market_book, boost::asio::io_context& io_context_ref ){
             this->acceptor.async_accept(
-            [this, &market_book](boost::system::error_code ec, tcp::socket socket) {
+            [this, &market_book, &io_context_ref](boost::system::error_code ec, tcp::socket socket) {
                 if (!ec) {
                     auto ptr = std::make_shared<MatchingSession>(std::move(socket));
                     ptr->start(market_book);
                 }
-                this->engineListener(market_book); 
+                this->engineListener(market_book, io_context_ref); 
             });
          }
          
          tcp::acceptor acceptor;
     };
+    class OB_MCAST_FEED{
+         public:
+         OB_MCAST_FEED(boost::asio::io_context& io_context_ref, const LL port) : snapshots(SNAPSHOT_QUEUE_SIZE), multicast_ep(boost::asio::ip::make_address(MULTICAST_IP) ,port) {
+             this->sock_ptr = std::make_shared<udp::socket>(io_context_ref, udp::v4());
+         }
+         void SEND_BROADCAST(){
+            this->sock_ptr->send_to(boost::asio::buffer("test"), multicast_ep);
+         }
+         private:
+         
+         udp::endpoint multicast_ep;
+         boost::lockfree::queue<OB_SNAPSHOT> snapshots;
+         std::shared_ptr<udp::socket> sock_ptr;
+    };
 
     class ServerHandler {
          public:
-         ServerHandler(){
-             ORDER_BOOK_PACKAGE::MARKET_BOOK market_book;
-             MatchingEngine engine(this->io_context, market_book);
-             for (int i =0;i<NUM_SERVER_THREADS;i++){
-                this->threads.emplace_back([&]{
-                   io_context.run();
-                });
-             }
-             for (int i =0;i<NUM_MARKET_BOOK_THREADS;i++){
-                this->threads.emplace_back([&]{
-                   market_book.market_listener();
-                });
-             }
-             for (auto& thread : this->threads) {
-                thread.join();
-             }
-         }
+         ServerHandler();
          private:
          std::vector<std::thread> threads;
          boost::asio::io_context io_context;

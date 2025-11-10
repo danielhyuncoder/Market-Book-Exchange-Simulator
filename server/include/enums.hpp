@@ -28,3 +28,9 @@ struct alignas(64) ORDER {
     LL del_id=0;
     SERVER_PACKAGE::MatchingSession* ptr;
 };
+
+struct alignas(64) OB_SNAPSHOT{
+    ORDER buy_side[SNAPSHOT_LEN];
+    ORDER sell_side[SNAPSHOT_LEN];
+    LL seq_len=0;
+};

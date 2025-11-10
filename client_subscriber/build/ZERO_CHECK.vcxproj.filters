@@ -1,0 +1,13 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="17.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <CustomBuild Include="C:\Projects\HFTExchangeSimulator\client_subscriber\build\CMakeFiles\8a5a9dd44da92490480f33f2f4bfe7d6\generate.stamp.rule">
+      <Filter>CMake Rules</Filter>
+    </CustomBuild>
+  </ItemGroup>
+  <ItemGroup>
+    <Filter Include="CMake Rules">
+      <UniqueIdentifier>{5BA5B1F7-A4AC-3A03-9CC4-0B68F6FA3398}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+</Project>

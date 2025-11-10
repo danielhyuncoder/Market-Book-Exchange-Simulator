@@ -4,6 +4,9 @@
     <ClCompile Include="C:\Projects\HFTExchangeSimulator\server\src\main.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="C:\Projects\HFTExchangeSimulator\server\include\server_classes.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <CustomBuild Include="C:\Projects\HFTExchangeSimulator\server\CMakeLists.txt" />

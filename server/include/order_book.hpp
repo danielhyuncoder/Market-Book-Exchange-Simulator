@@ -8,45 +8,53 @@
 #include <mutex>
 #include <array>
 #include <functional>
-#include <queue>
+#include <deque>
 #include <map> 
 #include "conversions.hpp"
+#include "server_classes.hpp"
+
+#include <fstream>
+#include <vector>
 
 namespace SERVER_PACKAGE{
     class MatchingSession;
 };
 
 namespace ORDER_BOOK_PACKAGE {
-    using BID_SPREAD_TYPE=std::map<LL, std::queue<ORDER>, std::greater<LL>>;
-    using ASK_SPREAD_TYPE=std::map<LL, std::queue<ORDER>>;
+    using BID_SPREAD_TYPE=std::map<LL, std::deque<ORDER>, std::greater<LL>>;
+    using ASK_SPREAD_TYPE=std::map<LL, std::deque<ORDER>>;
+    
     class alignas(64) ORDER_BOOK {
         public:
         ORDER_BOOK() : seq_len(0){
             
         }
         void SEND_ORDER(ORDER order){
+            this->seq_len.fetch_add(1);
             this->killed_orders[order.del_id]=false;
             if (order.order_type == ORDER_TYPE::BUY){
-                this->bids[order.price_level].push(std::move(order));
+                this->bids[order.price_level].push_back(std::move(order));
             } else {
-                this->asks[order.price_level].push(std::move(order));
+                this->asks[order.price_level].push_back(std::move(order));
             }
         
         }
         void KILL_ORDER(ORDER& order){
+            this->seq_len.fetch_add(1);
             if (this->killed_orders.find(order.del_id)==this->killed_orders.end()) {
-                order.ptr->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes(INVALID_ORDER_ID, 4));
+                //order.ptr->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes(INVALID_ORDER_ID, 4));
                 return;
             }
             this->killed_orders[order.del_id]=true;
         }
         void MODIFY_ORDER(ORDER order){
+            this->seq_len.fetch_add(-1);
             this->KILL_ORDER(order);
             order.del_id=0;
             this->SEND_ORDER(order);
         }
         void SEND_FILLED(ORDER& order){
-            order.ptr->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes(INVALID_ORDER_ID, 4));
+           // order.ptr->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes(INVALID_ORDER_ID, 4));
         }
         void UPDATE_BOOK(){
             if (this->bids.empty()||this->asks.empty()) return;
@@ -58,16 +66,16 @@ namespace ORDER_BOOK_PACKAGE {
                ORDER& bid_order = this->bids.begin()->second.front();
                ORDER& ask_order = this->asks.begin()->second.front();
                if (bid_order.price_level >= ask_order.price_level){
-                  std::queue<ORDER>& bid_orders = this->bids.begin()->second;
-                  std::queue<ORDER>& ask_orders = this->asks.begin()->second;
+                  std::deque<ORDER>& bid_orders = this->bids.begin()->second;
+                  std::deque<ORDER>& ask_orders = this->asks.begin()->second;
                   if (bid_order.qty>=ask_order.qty){
                      bid_order.qty-=ask_order.qty;
-                     ask_orders.pop();
-                     if (bid_order.qty==0) bid_orders.pop();
+                     ask_orders.pop_front();
+                     if (bid_order.qty==0) bid_orders.pop_front();
                   } else {
                      ask_order.qty-=bid_order.qty;
-                     bid_orders.pop();
-                     if (ask_order.qty==0) ask_orders.pop();
+                     bid_orders.pop_front();
+                     if (ask_order.qty==0) ask_orders.pop_front();
                   }
 
                   // price level erasure logic
@@ -92,27 +100,55 @@ namespace ORDER_BOOK_PACKAGE {
         template <typename spread_t>
         void REMOVE_ORDERS(spread_t& spread){
             while (!spread.empty() && this->killed_orders.find(spread.begin()->second.front().order_id)!=this->killed_orders.end()){
-                std::queue<ORDER>& orders = spread.begin()->second;
+                std::deque<ORDER>& orders = spread.begin()->second;
                 ORDER& top_order = orders.front();
-                top_order.ptr->writeToClient("C"+CONVERSION_PACKAGE::number_to_bytes(top_order.qty, 8));
+                //top_order.ptr->writeToClient("C"+CONVERSION_PACKAGE::number_to_bytes(top_order.qty, 8));
                 this->killed_orders.erase(top_order.order_id);
-                orders.pop();
+                orders.pop_front();
                 LL it=spread.begin()->first;
                 if (orders.empty()) spread.erase(it);
             }
         }
-        
+        OB_SNAPSHOT CREATE_SNAPSHOT(){
+            OB_SNAPSHOT snapshot;
+            int l = 0;
+            for (auto& orders : this->bids){
+                if (l>=SNAPSHOT_LEN) break;
+                for (ORDER& order : orders.second){
+                    if (l>=SNAPSHOT_LEN) break;
+                    if (this->killed_orders.find(order.order_id)!=this->killed_orders.end()) continue;
+                    snapshot.sell_side[l++]=order;
+                }
+            }
+            l=0;
+            for (auto& orders : this->asks){
+                if (l>=SNAPSHOT_LEN) break;
+                for (ORDER& order : orders.second){
+                    if (l>=SNAPSHOT_LEN) break;
+                    if (this->killed_orders.find(order.order_id)!=this->killed_orders.end()) continue;
+                    snapshot.sell_side[l++]=order;
+                }
+            }
+            return std::move(snapshot);
+        }
 
     };
     struct alignas(64) ORDER_BOOK_SHARD {
+        ORDER_BOOK_SHARD(boost::asio::io_context& ctx,LL port) : snapshot_broadcaster(ctx, port),port(port) {
+
+        }
+        ORDER_BOOK_SHARD(ORDER_BOOK_SHARD&&) = default; 
         std::shared_mutex mtx;
         std::unordered_map<LL, ORDER_BOOK> priv_mp;
+        SERVER_PACKAGE::OB_MCAST_FEED snapshot_broadcaster;
+        LL port =0;
     };
     class MARKET_BOOK {
         
         public:
         std::unique_ptr<boost::lockfree::queue<ORDER>> market_orders = std::make_unique<boost::lockfree::queue<ORDER>>(QUEUE_SIZE);
         void market_listener() {
+            
             while (true) {
                 ORDER order;
                 if (!this->market_orders->pop(order)) continue;
@@ -120,21 +156,26 @@ namespace ORDER_BOOK_PACKAGE {
                 for (int i =0;i<SYMBOL_BYTES;i++){
                     str+=order.symbol[i];
                 }
+          
                 LL order_hash = this->shard_hash_func(str);
+
                 LL symbol_hash=order_hash;
+                
                 order_hash %= NUM_SHARDS;
-                std::unique_lock<std::shared_mutex> guard(this->shards[order_hash].mtx);
-                if (this->shards[order_hash].priv_mp.find(symbol_hash)==this->shards[order_hash].priv_mp.end()){
+                std::unique_lock<std::shared_mutex> guard(this->shards[order_hash]->mtx);
+                if (this->shards[order_hash]->priv_mp.find(symbol_hash)==this->shards[order_hash]->priv_mp.end()){
                     // err logic.
+                    continue;
                 }
+                this->shards[order_hash]->snapshot_broadcaster.SEND_BROADCAST();
                 if (order.request_type == REQUEST_TYPE::SEND_ORDER) {
-                    this->shards[order_hash].priv_mp[symbol_hash].SEND_ORDER(std::move(order));
+                    this->shards[order_hash]->priv_mp[symbol_hash].SEND_ORDER(std::move(order));
                 } else if (order.request_type == REQUEST_TYPE::MODIFY_ORDER){
-                    this->shards[order_hash].priv_mp[symbol_hash].MODIFY_ORDER(std::move(order));
+                    this->shards[order_hash]->priv_mp[symbol_hash].MODIFY_ORDER(std::move(order));
                 } else {
-                    this->shards[order_hash].priv_mp[symbol_hash].KILL_ORDER(order);
+                    this->shards[order_hash]->priv_mp[symbol_hash].KILL_ORDER(order);
                 }
-                this->shards[order_hash].priv_mp[symbol_hash].UPDATE_BOOK();
+                this->shards[order_hash]->priv_mp[symbol_hash].UPDATE_BOOK();
             }
         }
         LL assign_order_id() {
@@ -143,11 +184,20 @@ namespace ORDER_BOOK_PACKAGE {
         LL get_order_id() {
             return current_id.load();
         }
-        MARKET_BOOK() : current_id(0) {
+        MARKET_BOOK(boost::asio::io_context& ctx, std::vector<std::string> symbols) : current_id(0) {
+           for (int i =0;i<NUM_SHARDS;i++){
+               this->shards.push_back(std::make_shared<ORDER_BOOK_SHARD>(ctx, (long long)(30001+i)));
+           }
+           for (std::string& symbol : symbols){
+               LL hash = shard_hash_func(symbol);
+
+               this->shards[hash%NUM_SHARDS]->priv_mp[hash];
+           }
+
            
         }
         private:
-        std::array<ORDER_BOOK_SHARD, NUM_SHARDS> shards;
+        std::vector<std::shared_ptr<ORDER_BOOK_SHARD>> shards;
         std::atomic<LL> current_id;
         std::hash<std::string> shard_hash_func;
     };

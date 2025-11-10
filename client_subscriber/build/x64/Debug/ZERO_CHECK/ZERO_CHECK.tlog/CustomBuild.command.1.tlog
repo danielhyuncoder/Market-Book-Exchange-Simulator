@@ -1,0 +1,10 @@
+^C:\PROJECTS\HFTEXCHANGESIMULATOR\CLIENT_SUBSCRIBER\BUILD\CMAKEFILES\8A5A9DD44DA92490480F33F2F4BFE7D6\GENERATE.STAMP.RULE
+setlocal
+C:\cmake-4.1.2-windows-x86_64\cmake-4.1.2-windows-x86_64\bin\cmake.exe -SC:/Projects/HFTExchangeSimulator/client_subscriber -BC:/Projects/HFTExchangeSimulator/client_subscriber/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file C:/Projects/HFTExchangeSimulator/client_subscriber/build/HFTExchangeSimulator.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

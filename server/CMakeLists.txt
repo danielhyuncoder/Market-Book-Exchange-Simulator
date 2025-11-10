@@ -10,5 +10,8 @@ endif()
 
 find_package(Boost REQUIRED COMPONENTS system)
 
-add_executable(HFTExchangeSimulator src/main.cpp)
+file(COPY ${CMAKE_SOURCE_DIR}/data/symbols.json
+     DESTINATION ${CMAKE_CURRENT_BINARY_DIR}/data)
+
+add_executable(HFTExchangeSimulator src/main.cpp include/server_classes.cpp)
 target_link_libraries(HFTExchangeSimulator PRIVATE Boost::system)
