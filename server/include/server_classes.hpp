@@ -77,8 +77,8 @@ namespace SERVER_PACKAGE {
          OB_MCAST_FEED(boost::asio::io_context& io_context_ref, const LL port) : snapshots(SNAPSHOT_QUEUE_SIZE), multicast_ep(boost::asio::ip::make_address(MULTICAST_IP) ,port) {
              this->sock_ptr = std::make_shared<udp::socket>(io_context_ref, udp::v4());
          }
-         void SEND_BROADCAST(){
-            this->sock_ptr->send_to(boost::asio::buffer("test"), multicast_ep);
+         void SEND_BROADCAST(OB_SNAPSHOT snapshot, std::string symbol, LL seq_len){
+            this->sock_ptr->send_to(boost::asio::buffer(CONVERSION_PACKAGE::SNAPSHOT_TO_BYTES(snapshot, std::move(symbol), seq_len), 4 + 8 + (2*(24 * SNAPSHOT_LEN))), multicast_ep);
          }
          private:
          

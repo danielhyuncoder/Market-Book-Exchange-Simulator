@@ -1,7 +1,7 @@
 #include <boost/asio.hpp>
 #include <iostream>
 #include <array>
-
+#include "../include/conversions.hpp"
 using boost::asio::ip::udp;
 
 int main() {
@@ -34,6 +34,7 @@ int main() {
 
             std::cout << "Received from " << sender_endpoint.address().to_string() 
                       << ":" << sender_endpoint.port() << " - " << message << std::endl;
+            CONVERSION_PACKAGE::get_snapshot(message);
         }
     } catch (std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;

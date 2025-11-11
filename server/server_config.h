@@ -16,8 +16,12 @@
 // Define Market Book logic
 #define QUEUE_SIZE 1024
 #define NUM_SHARDS 16
+
+// Define Snapshot Configurations
+
 #define SNAPSHOT_LEN 10
 #define SNAPSHOT_QUEUE_SIZE 1024
+#define SNAPSHOT_FREQUENCY 1
 // Define Exchange Constants
 
 #define TICK_SIZE 0.25

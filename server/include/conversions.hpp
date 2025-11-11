@@ -10,7 +10,7 @@ class CONVERSION_PACKAGE {
     static LL byte_conversion(std::string& message, int begin, int end){
        int cnt = 0;
        LL ans=0;
-       for (int i = end;i>begin;i--){
+       for (int i = end;i>=begin;i--){
             ans |= static_cast<LL>(static_cast<unsigned char>(message[i]) << (8*cnt++));
        }
        return ans;
@@ -64,6 +64,29 @@ class CONVERSION_PACKAGE {
             msg += static_cast<unsigned char>(0);
         }
         std::reverse(msg.begin(), msg.end());
-        return msg;
+        return std::move(msg);
     };
+
+    template<typename N>
+    static std::string order_to_bytes(ORDER& order){
+        std::string msg="";
+        msg+=number_to_bytes<N>(order.order_id, ID_BYTES);
+        msg+=number_to_bytes<N>(order.price_level, PRICE_BYTES);
+        msg+=number_to_bytes<N>(order.qty, QTY_BYTES);
+        return std::move(msg);
+    };
+    static std::string SNAPSHOT_TO_BYTES(OB_SNAPSHOT snapshot, std::string symbol, LL seq_len){
+        // Overall: Symbol (4 bytes), Seq_len (8 bytes)
+        // Each Order (BUY): ID, Price, quantity (24 * 10) total = 240 bytes
+        // Each Order (SELL): ID, Price, quantity (24 * 10) total = 240 bytes
+        symbol += number_to_bytes<LL>(seq_len, 8);
+        for (int i =0;i<SNAPSHOT_LEN;i++){
+            symbol+=order_to_bytes<LL>(snapshot.buy_side[i]);
+        }
+        for (int i =0;i<SNAPSHOT_LEN;i++){
+            symbol+=order_to_bytes<LL>(snapshot.sell_side[i]);
+        }
+        return std::move(symbol);
+    }
+
 };

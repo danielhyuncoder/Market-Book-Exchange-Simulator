@@ -10,6 +10,7 @@
 #include <functional>
 #include <deque>
 #include <map> 
+#include <future>
 #include "conversions.hpp"
 #include "server_classes.hpp"
 
@@ -26,6 +27,7 @@ namespace ORDER_BOOK_PACKAGE {
     
     class alignas(64) ORDER_BOOK {
         public:
+        std::atomic<LL> seq_len;
         ORDER_BOOK() : seq_len(0){
             
         }
@@ -92,23 +94,6 @@ namespace ORDER_BOOK_PACKAGE {
 
             }
         }
-        private:
-        BID_SPREAD_TYPE bids;
-        ASK_SPREAD_TYPE asks;
-        std::unordered_map<LL, bool> killed_orders;
-        std::atomic<LL> seq_len;
-        template <typename spread_t>
-        void REMOVE_ORDERS(spread_t& spread){
-            while (!spread.empty() && this->killed_orders.find(spread.begin()->second.front().order_id)!=this->killed_orders.end()){
-                std::deque<ORDER>& orders = spread.begin()->second;
-                ORDER& top_order = orders.front();
-                //top_order.ptr->writeToClient("C"+CONVERSION_PACKAGE::number_to_bytes(top_order.qty, 8));
-                this->killed_orders.erase(top_order.order_id);
-                orders.pop_front();
-                LL it=spread.begin()->first;
-                if (orders.empty()) spread.erase(it);
-            }
-        }
         OB_SNAPSHOT CREATE_SNAPSHOT(){
             OB_SNAPSHOT snapshot;
             int l = 0;
@@ -131,6 +116,24 @@ namespace ORDER_BOOK_PACKAGE {
             }
             return std::move(snapshot);
         }
+        private:
+        BID_SPREAD_TYPE bids;
+        ASK_SPREAD_TYPE asks;
+        std::unordered_map<LL, bool> killed_orders;
+        
+        template <typename spread_t>
+        void REMOVE_ORDERS(spread_t& spread){
+            while (!spread.empty() && this->killed_orders.find(spread.begin()->second.front().order_id)!=this->killed_orders.end()){
+                std::deque<ORDER>& orders = spread.begin()->second;
+                ORDER& top_order = orders.front();
+                //top_order.ptr->writeToClient("C"+CONVERSION_PACKAGE::number_to_bytes(top_order.qty, 8));
+                this->killed_orders.erase(top_order.order_id);
+                orders.pop_front();
+                LL it=spread.begin()->first;
+                if (orders.empty()) spread.erase(it);
+            }
+        }
+        
 
     };
     struct alignas(64) ORDER_BOOK_SHARD {
@@ -167,13 +170,20 @@ namespace ORDER_BOOK_PACKAGE {
                     // err logic.
                     continue;
                 }
-                this->shards[order_hash]->snapshot_broadcaster.SEND_BROADCAST();
+
+                this->shards[order_hash]->priv_mp[symbol_hash].seq_len.fetch_add(1);
                 if (order.request_type == REQUEST_TYPE::SEND_ORDER) {
                     this->shards[order_hash]->priv_mp[symbol_hash].SEND_ORDER(std::move(order));
                 } else if (order.request_type == REQUEST_TYPE::MODIFY_ORDER){
                     this->shards[order_hash]->priv_mp[symbol_hash].MODIFY_ORDER(std::move(order));
                 } else {
                     this->shards[order_hash]->priv_mp[symbol_hash].KILL_ORDER(order);
+                }
+                LL seq_len=this->shards[order_hash]->priv_mp[symbol_hash].seq_len.load();
+                if ((seq_len % SNAPSHOT_FREQUENCY) == 0){
+                    std::string sym = "";
+                    for (int i =0;i<4;i++) sym += order.symbol[i];
+                    std::future<void> res = std::async(std::launch::async, &SERVER_PACKAGE::OB_MCAST_FEED::SEND_BROADCAST, &this->shards[order_hash]->snapshot_broadcaster, this->shards[order_hash]->priv_mp[symbol_hash].CREATE_SNAPSHOT(), std::move(sym),seq_len);
                 }
                 this->shards[order_hash]->priv_mp[symbol_hash].UPDATE_BOOK();
             }
@@ -184,7 +194,7 @@ namespace ORDER_BOOK_PACKAGE {
         LL get_order_id() {
             return current_id.load();
         }
-        MARKET_BOOK(boost::asio::io_context& ctx, std::vector<std::string> symbols) : current_id(0) {
+        MARKET_BOOK(boost::asio::io_context& ctx, std::vector<std::string> symbols) : current_id(1) {
            for (int i =0;i<NUM_SHARDS;i++){
                this->shards.push_back(std::make_shared<ORDER_BOOK_SHARD>(ctx, (long long)(30001+i)));
            }
