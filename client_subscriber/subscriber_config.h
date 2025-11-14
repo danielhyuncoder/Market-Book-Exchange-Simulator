@@ -7,3 +7,7 @@
 
 // Define Snapshot Print or no print (Debug)
 #define PRINT_SNAPSHOT true
+
+// Define Client Subscriber Socket 
+#define MULTICAST_IP "239.192.37.42"
+#define MULTICAST_PORT 30001

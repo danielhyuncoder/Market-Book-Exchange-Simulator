@@ -1,0 +1,11 @@
+{
+    "orders": [
+        {
+            "type": "KILL",
+            "symbol": "",
+            "order_id": 0,
+            "price_level": 2,
+            "quantity": 0
+        }
+    ]
+}

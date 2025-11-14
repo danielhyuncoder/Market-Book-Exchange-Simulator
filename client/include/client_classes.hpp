@@ -6,7 +6,10 @@
 #include <array>
 #include "../client_config.h"
 #include "./conversions.hpp"
+#include "json.hpp"
+#include <fstream>
 
+using json = nlohmann::json;
 using boost::asio::ip::tcp;
 namespace CLIENT_PACKAGE {
      class StandardClient : public std::enable_shared_from_this<StandardClient> {
@@ -39,19 +42,52 @@ namespace CLIENT_PACKAGE {
             this->ClientTCPListener();
             this->io_context.run();
          }
+         void ProcessOrdersFromJSON() {
+            std::ifstream pFile(ORDERS_PATH);
+            if (!pFile.is_open()) {
+               std::cerr << "Failed to open orders.json" << std::endl;
+               return;
+            }
+            json j;
+            pFile>>j;
+            pFile.close();
+            for (auto& order : j["orders"]) {
+               std::string type = order["type"];
+               std::string symbol = order["symbol"];
+            
+               if (type=="KILL"){
+                   LL order_id = order["order_id"];
+                   this->SendKill(symbol, order_id);
+                   continue;
+               }
+               LL price_level = order["price_level"];
+               LL qty = order["quantity"];
+               
+               std::string order_type = order["order_type"];
+               
+               if (type=="SEND"){
+                   this->SendOrder(order_type, symbol, price_level, qty);
+                   continue;
+               }
+               LL order_id = order["order_id"];
+               this->SendModify(order_type, symbol, order_id, price_level, qty);
+            } 
+         }
          private:
          void ClientTCPListener(){
             auto self_ptr = shared_from_this();
-            this->socketPtr->async_read_some(boost::asio::buffer(data), [this, self_ptr](boost::system::error_code ec, size_t bytes_read) {
+            this->socketPtr->async_read_some(boost::asio::buffer(data, 2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES), [this, self_ptr](boost::system::error_code ec, size_t bytes_read) {
                 if (!ec){
                     std::string msg(data.data(), bytes_read);
-                    std::cout << msg << std::endl;
+                    if (msg[0]=='A') {
+                        CONVERSION_PACKAGE::DECODE_ACK(msg);
+                    } else CONVERSION_PACKAGE::DECODE_ERROR(msg);
                 }
                 ClientTCPListener();
             });
          } 
          boost::asio::io_context io_context;
          std::shared_ptr<tcp::socket> socketPtr;  
-         std::array<char, 1024> data;
+         std::array<char, 2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES> data;
      };
 };
