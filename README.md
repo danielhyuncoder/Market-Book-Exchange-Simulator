@@ -216,17 +216,17 @@ Download Command (USING VCPKG AND CMAKE):
 
 ### 1. Start Subscriber(s)
 ```
-./subscriber
+.\client_subscriber\build\Debug\ClientSubscriber
 ```
 
 ### 2. Start Server
 ```
-./server
+.\server\build\Debug\HFTExchangeSimulator
 ```
 
 ### 3. Run Client (reads orders.json automatically)
 ```
-./client
+.\client\build\Debug\HFTExchangeSimulatorClient
 ```
 
 ---
@@ -245,15 +245,59 @@ Download Command (USING VCPKG AND CMAKE):
 
 ---
 
-# 📚 JSON Requirements
+# 📚 JSON Requirements: symbols.json
 
 ### symbols.json
 ```
 {
     "symbols": [
-        { "symbol_name": "APPL" }
+        { 
+            "symbol_name": "APPL" (Only requires one entry for every symbol, symbol_name) (Default size is 4 Bytes)
+        }
     ]
 }
 ```
 
+---
+# 📚 JSON Requirements: orders.json
+### Send Order Example
+```
+{
+    "orders": [
+        {
+            "type": "SEND" (Either "SEND", "KILL", or "MODIFY"),
+            "symbol": "APPL" (By default it's 4 Bytes),
+            "price_level": 254 (Specifies the amount of ticks of the price),
+            "quantity": 1 (Specifies the amount),
+            "order_type": "B" (Specifies whether or not its a BUY or SELL order)
+        }
+    ]
+}
+```
+### Modify Order Example
+```
+{
+    "orders": [
+        {
+            "type": "Modify" (Either "SEND", "KILL", or "MODIFY"),
+            "symbol": "APPL" (By default it's 4 Bytes),
+            "price_level": 254 (Specifies the new amount of ticks of the price),
+            "quantity": 1 (Specifies the new amount),
+            "order_type": "B" (Specifies whether or not its a BUY or SELL order),
+            "order_id": "B" (Specifies the order being modified)
+        }
+    ]
+}
+```
+### Kill Order Example
+```
+{
+    "orders": [
+        {
+            "type": "Kill" (Either "SEND", "KILL", or "MODIFY"),
+            "symbol": "APPL" (By default it's 4 Bytes)
+        }
+    ]
+}
+```
 ---

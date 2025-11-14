@@ -202,6 +202,7 @@ namespace ORDER_BOOK_PACKAGE {
                LL hash = shard_hash_func(symbol);
 
                this->shards[hash%NUM_SHARDS]->priv_mp[hash];
+               if (PRINT_SYMBOL_HASHES) std::cout << symbol << " PORT -> " << (30001+(hash%NUM_SHARDS)) << std::endl;
            }
 
            
