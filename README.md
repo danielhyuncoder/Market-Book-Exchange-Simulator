@@ -1,4 +1,4 @@
-# HFT Exchange Simulator
+# Market Book Exchange Simulator
 
 A three-process simulation of an exchange order-flow pipeline, built in C++20 with Boost.Asio: a **client** that submits orders over TCP, a **matching server** that validates, books, and matches those orders, and one or more **subscribers** that receive live order-book snapshots over UDP multicast.
 
