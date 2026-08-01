@@ -4,10 +4,10 @@ A three-process simulation of an exchange order-flow pipeline, built in C++20 wi
 
 ```
  ┌────────┐     TCP (orders)      ┌────────────┐     UDP multicast     ┌──────────────┐
- │ Client │ ─────────────────────▶│   Server   │───────────────────────▶│  Subscriber  │
- │        │◀───────────────────── │ (matching  │                        │ (N instances)│
- └────────┘   TCP (ACK / ERROR)   │   engine)  │                        └──────────────┘
-                                   └────────────┘
+ │ Client │ ────────────────────> │   Server   │──────────────────────>│  Subscriber  │
+ │        │<───────────────────── │ (matching  │                       │ (N instances)│
+ └────────┘   TCP (ACK / ERROR)   │   engine)  │                       └──────────────┘
+                                  └────────────┘
 ```
 
 ---
