@@ -44,7 +44,9 @@ namespace ORDER_BOOK_PACKAGE {
         void KILL_ORDER(ORDER& order){
             this->seq_len.fetch_add(1);
             if (this->killed_orders.find(order.del_id)==this->killed_orders.end()) {
-                //order.ptr->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes(INVALID_ORDER_ID, 4));
+                if (auto sp = order.ptr.lock()) {
+                    sp->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(INVALID_ORDER_ID, 4));
+                }
                 return;
             }
             this->killed_orders[order.del_id]=true;
@@ -102,7 +104,7 @@ namespace ORDER_BOOK_PACKAGE {
                 for (ORDER& order : orders.second){
                     if (l>=SNAPSHOT_LEN) break;
                     if (this->killed_orders.find(order.order_id)!=this->killed_orders.end()) continue;
-                    snapshot.sell_side[l++]=order;
+                    snapshot.buy_side[l++]=order;
                 }
             }
             l=0;
@@ -126,7 +128,9 @@ namespace ORDER_BOOK_PACKAGE {
             while (!spread.empty() && this->killed_orders.find(spread.begin()->second.front().order_id)!=this->killed_orders.end()){
                 std::deque<ORDER>& orders = spread.begin()->second;
                 ORDER& top_order = orders.front();
-                //top_order.ptr->writeToClient("C"+CONVERSION_PACKAGE::number_to_bytes(top_order.qty, 8));
+                if (auto sp = top_order.ptr.lock()) {
+                    sp->writeToClient("C"+CONVERSION_PACKAGE::number_to_bytes<LL>(top_order.qty, QTY_BYTES));
+                }
                 this->killed_orders.erase(top_order.order_id);
                 orders.pop_front();
                 LL it=spread.begin()->first;
@@ -167,7 +171,10 @@ namespace ORDER_BOOK_PACKAGE {
                 order_hash %= NUM_SHARDS;
                 std::unique_lock<std::shared_mutex> guard(this->shards[order_hash]->mtx);
                 if (this->shards[order_hash]->priv_mp.find(symbol_hash)==this->shards[order_hash]->priv_mp.end()){
-                    // err logic.
+                    if (auto sp = order.ptr.lock()) {
+                        sp->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(SYMBOL_NOT_FOUND, 4));
+                    }
+                    
                     continue;
                 }
 

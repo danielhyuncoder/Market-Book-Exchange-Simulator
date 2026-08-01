@@ -11,7 +11,6 @@ void SERVER_PACKAGE::MatchingSession::readListener(ORDER_BOOK_PACKAGE::MARKET_BO
                 if (!ec) {
                     std::string msg(data_.data(), bytes_read);
                     ORDER current_order;
-                    current_order.ptr=shared_from_this().get();
                     if (msg[0]=='O'){
                       current_order=CONVERSION_PACKAGE::DECODE_SEND_ORDER(msg);
                       bool s = simpleReject(current_order);
@@ -27,6 +26,7 @@ void SERVER_PACKAGE::MatchingSession::readListener(ORDER_BOOK_PACKAGE::MARKET_BO
                       this->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(MALFORMED_REQUEST, 4));readListener(market_book); return;
                     }
                     current_order.order_id=market_book.assign_order_id();
+                    current_order.ptr=shared_from_this().get();
                     market_book.market_orders->push(std::move(current_order));
   
                 }
