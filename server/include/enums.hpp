@@ -26,7 +26,7 @@ struct alignas(64) ORDER {
     REQUEST_TYPE request_type;
     LL order_id=0;
     LL del_id=0;
-    std::weak_ptr<SERVER_PACKAGE::MatchingSession> ptr;
+    LL session_id=0;
 };
 
 struct alignas(64) OB_SNAPSHOT {

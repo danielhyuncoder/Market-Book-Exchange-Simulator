@@ -24,10 +24,34 @@ namespace ORDER_BOOK_PACKAGE{
 
 
 namespace SERVER_PACKAGE {
+    class SessionRegistry {
+        public:
+        static SessionRegistry& instance() {
+            static SessionRegistry reg;
+            return reg;
+        }
+        void add(LL id, std::shared_ptr<MatchingSession> sp) {
+            std::lock_guard<std::mutex> lock(mtx_);
+            sessions_[id] = sp;
+        }
+        void remove(LL id) {
+            std::lock_guard<std::mutex> lock(mtx_);
+            sessions_.erase(id);
+        }
+        std::shared_ptr<MatchingSession> lock(LL id) {
+            std::lock_guard<std::mutex> lock(mtx_);
+            auto it = sessions_.find(id);
+            if (it == sessions_.end()) return nullptr;
+            return it->second.lock();
+        }
+        private:
+        std::mutex mtx_;
+        std::unordered_map<LL, std::weak_ptr<MatchingSession>> sessions_;
+    };
     class MatchingSession : public std::enable_shared_from_this<MatchingSession> {
       public:
-      MatchingSession(tcp::socket socket)
-        : socket_(std::move(socket)) {}
+      MatchingSession(tcp::socket socket, LL session_id)
+        : socket_(std::move(socket)), session_id_(session_id) {}
 
       void start(ORDER_BOOK_PACKAGE::MARKET_BOOK& market_book) {
         readListener(market_book);
@@ -36,6 +60,7 @@ namespace SERVER_PACKAGE {
         boost::asio::write(this->socket_, boost::asio::buffer(msg));
 
       }
+      LL id() const { return session_id_; }
       private:
 
       bool simpleReject(ORDER& current_order){
@@ -51,6 +76,7 @@ namespace SERVER_PACKAGE {
       tcp::socket socket_;
       std::array<char, 2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES> data_;
       std::mutex mtx;
+      LL session_id_;
     };
 
     class MatchingEngine {
@@ -63,13 +89,15 @@ namespace SERVER_PACKAGE {
             this->acceptor.async_accept(
             [this, &market_book, &io_context_ref](boost::system::error_code ec, tcp::socket socket) {
                 if (!ec) {
-                    auto ptr = std::make_shared<MatchingSession>(std::move(socket));
+                    LL sid = next_session_id_.fetch_add(1);
+                    auto ptr = std::make_shared<MatchingSession>(std::move(socket), sid);
+                    SessionRegistry::instance().add(sid, ptr);
                     ptr->start(market_book);
                 }
                 this->engineListener(market_book, io_context_ref); 
             });
          }
-         
+         std::atomic<LL> next_session_id_{1};
          tcp::acceptor acceptor;
     };
     class OB_MCAST_FEED{
@@ -96,4 +124,5 @@ namespace SERVER_PACKAGE {
          
 
     };
+
 };

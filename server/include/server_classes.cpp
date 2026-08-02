@@ -26,7 +26,7 @@ void SERVER_PACKAGE::MatchingSession::readListener(ORDER_BOOK_PACKAGE::MARKET_BO
                       this->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(MALFORMED_REQUEST, 4));readListener(market_book); return;
                     }
                     current_order.order_id=market_book.assign_order_id();
-                    current_order.ptr=shared_from_this().get();
+                    current_order.session_id = self->id();
                     market_book.market_orders->push(std::move(current_order));
   
                 }

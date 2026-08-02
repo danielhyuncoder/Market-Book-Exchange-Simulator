@@ -44,7 +44,7 @@ namespace ORDER_BOOK_PACKAGE {
         void KILL_ORDER(ORDER& order){
             this->seq_len.fetch_add(1);
             if (this->killed_orders.find(order.del_id)==this->killed_orders.end()) {
-                if (auto sp = order.ptr.lock()) {
+                if (auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(order.session_id)) {
                     sp->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(INVALID_ORDER_ID, 4));
                 }
                 return;
@@ -128,7 +128,7 @@ namespace ORDER_BOOK_PACKAGE {
             while (!spread.empty() && this->killed_orders.find(spread.begin()->second.front().order_id)!=this->killed_orders.end()){
                 std::deque<ORDER>& orders = spread.begin()->second;
                 ORDER& top_order = orders.front();
-                if (auto sp = top_order.ptr.lock()) {
+                if (auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(top_order.session_id)) {
                     sp->writeToClient("C"+CONVERSION_PACKAGE::number_to_bytes<LL>(top_order.qty, QTY_BYTES));
                 }
                 this->killed_orders.erase(top_order.order_id);
@@ -171,7 +171,7 @@ namespace ORDER_BOOK_PACKAGE {
                 order_hash %= NUM_SHARDS;
                 std::unique_lock<std::shared_mutex> guard(this->shards[order_hash]->mtx);
                 if (this->shards[order_hash]->priv_mp.find(symbol_hash)==this->shards[order_hash]->priv_mp.end()){
-                    if (auto sp = order.ptr.lock()) {
+                    if (auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(order.session_id)) {
                         sp->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(SYMBOL_NOT_FOUND, 4));
                     }
                     
