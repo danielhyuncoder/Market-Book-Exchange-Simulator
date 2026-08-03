@@ -1,0 +1,4 @@
+C:/Projects/HFTExchangeSimulator/bench/build/CMakeFiles/MarketBookBenchmarks.dir
+C:/Projects/HFTExchangeSimulator/bench/build/CMakeFiles/Repro.dir
+C:/Projects/HFTExchangeSimulator/bench/build/CMakeFiles/edit_cache.dir
+C:/Projects/HFTExchangeSimulator/bench/build/CMakeFiles/rebuild_cache.dir

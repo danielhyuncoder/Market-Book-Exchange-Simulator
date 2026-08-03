@@ -28,7 +28,7 @@
 
 // Define Developer Debug
 #define CONVERSION_LOGS false
-#define PRINT_SYMBOL_HASHES true
+#define PRINT_SYMBOL_HASHES false
 // Define Error Codes
 #define MALFORMED_REQUEST 100
 #define SYMBOL_NOT_FOUND 101

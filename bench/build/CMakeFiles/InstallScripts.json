@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"C:/Projects/HFTExchangeSimulator/bench/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}
