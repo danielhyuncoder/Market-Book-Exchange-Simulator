@@ -36,58 +36,14 @@ The simulator models the core mechanics of an electronic exchange:
 - The server decodes and validates each request, assigns it a unique order ID, and hands it off to a lock-free queue for asynchronous processing — keeping the network I/O thread(s) decoupled from matching logic.
 - Orders are matched per-symbol using **price-time priority**, with symbols distributed across multiple independent shards so unrelated symbols can be matched in parallel.
 - After every book-changing event, the server serializes a depth-of-book snapshot and multicasts it over UDP, so any number of subscribers can listen in without adding load back onto the matching path.
-# Market Book Exchange Simulator
-
-A three-process simulation of an exchange order-flow pipeline, built in C++20 with Boost.Asio: a **client** that submits orders over TCP, a **matching server** that validates, books, and matches those orders, and one or more **subscribers** that receive live order-book snapshots over UDP multicast.
-
-```
- ┌────────┐     TCP (orders)      ┌────────────┐     UDP multicast     ┌──────────────┐
- │ Client │ ────────────────────> │   Server   │──────────────────────>│  Subscriber  │
- │        │<───────────────────── │ (matching  │                       │ (N instances)│
- └────────┘   TCP (ACK / ERROR)   │   engine)  │                       └──────────────┘
-                                  └────────────┘
-```
-
----
-
-## Table of Contents
-
-- [Overview](#overview)
-- [Project Structure](#project-structure)
-- [Components](#components)
-- [Order Flow](#order-flow)
-- [Wire Protocol](#wire-protocol)
-- [Configuring Message Size (18–30 bytes)](#configuring-message-size-1830-bytes)
-- [JSON Configuration Files](#json-configuration-files)
-- [Build](#build)
-- [Run](#run)
-- [Configuration Reference](#configuration-reference)
-- [Error Codes](#error-codes)
-
----
-
-## Overview
-
-The simulator models the core mechanics of an electronic exchange:
-
-- Clients submit **SEND**, **MODIFY**, and **KILL** order requests over a persistent TCP connection, using a compact, fixed-width binary wire format (not JSON — JSON is only used for local configuration/seed files, not on the wire).
-- The server decodes and validates each request, assigns it a unique order ID, and hands it off to a lock-free queue for asynchronous processing — keeping the network I/O thread(s) decoupled from matching logic.
-- Orders are matched per-symbol using **price-time priority**, with symbols distributed across multiple independent shards so unrelated symbols can be matched in parallel.
-- After every book-changing event, the server serializes a depth-of-book snapshot and multicasts it over UDP, so any number of subscribers can listen in without adding load back onto the matching path.
 
 ## Project Structure
-## Project Structure
 
 ```
-HFTExchangeSimulator/
-├── vcpkg.json                       # dependency manifest (boost-asio, boost-system)
 HFTExchangeSimulator/
 ├── vcpkg.json                       # dependency manifest (boost-asio, boost-system)
 │
 ├── client/
-│   ├── CMakeLists.txt
-│   ├── client_config.h              # ports, IPs, wire-format byte widths
-│   ├── data/orders.json             # orders replayed on startup
 │   ├── CMakeLists.txt
 │   ├── client_config.h              # ports, IPs, wire-format byte widths
 │   ├── data/orders.json             # orders replayed on startup
@@ -96,15 +52,8 @@ HFTExchangeSimulator/
 │   │   ├── conversions.hpp          # byte <-> number codec, ACK/ERROR decoding
 │   │   └── json.hpp                 # nlohmann::json (vendored)
 │   └── src/main.cpp
-│   │   ├── client_classes.hpp       # StandardClient: connect, encode, send, listen for ACK/ERROR
-│   │   ├── conversions.hpp          # byte <-> number codec, ACK/ERROR decoding
-│   │   └── json.hpp                 # nlohmann::json (vendored)
-│   └── src/main.cpp
 │
 ├── server/
-│   ├── CMakeLists.txt
-│   ├── server_config.h              # ports, thread counts, byte widths, error codes
-│   ├── data/symbols.json            # tradable symbols loaded at startup
 │   ├── CMakeLists.txt
 │   ├── server_config.h              # ports, thread counts, byte widths, error codes
 │   ├── data/symbols.json            # tradable symbols loaded at startup
@@ -155,16 +104,16 @@ Each of `client/`, `server/`, and `client_subscriber/` is an independent CMake p
 ```
 Client                          Server                                          Subscribers
   │                                │
-  │──TCP: SEND/MODIFY/KILL───────▶│  MatchingSession decodes + validates
+  │──TCP: SEND/MODIFY/KILL────────>│  MatchingSession decodes + validates
   │                                │  → assigns order ID
-  │◀──TCP: ACK / ERROR─────────────│  → pushes onto lock-free queue
+  │<──TCP: ACK / ERROR─────────────│  → pushes onto lock-free queue
   │                                │
                                    │  Worker thread pops queue
                                    │  → hash symbol → route to shard
                                    │  → apply SEND / MODIFY / KILL to book
                                    │  → run price-time-priority matching
                                    │  → every N events: build snapshot
-                                   │──UDP multicast: snapshot──────────────────▶│  decode + display
+                                   │──UDP multicast: snapshot──────────────────>│  decode + display
 ```
 
 - **SEND** places a new resting order into the book on the given side, at the given price and quantity.
