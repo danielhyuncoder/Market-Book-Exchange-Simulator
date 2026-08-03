@@ -15,7 +15,6 @@ void SERVER_PACKAGE::MatchingSession::readListener(ORDER_BOOK_PACKAGE::MARKET_BO
                       current_order=CONVERSION_PACKAGE::DECODE_SEND_ORDER(msg);
                       bool s = simpleReject(current_order);
                       if (s) {readListener(market_book);return;}
-                      this->writeToClient("A"+msg.substr(1, (int)msg.length()-1));
                     } else if (msg[0]=='U'){
                       current_order=CONVERSION_PACKAGE::DECODE_MODIFY_ORDER(msg);
                       bool s = simpleReject(current_order);
@@ -27,8 +26,9 @@ void SERVER_PACKAGE::MatchingSession::readListener(ORDER_BOOK_PACKAGE::MARKET_BO
                     }
                     current_order.order_id=market_book.assign_order_id();
                     current_order.session_id = self->id();
+                    this->writeToClient(CONVERSION_PACKAGE::ENCODE_ACK(current_order, msg[0]));
                     market_book.market_orders->push(std::move(current_order));
-  
+
                 }
                 readListener(market_book);
             });

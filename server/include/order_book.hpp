@@ -58,6 +58,16 @@ namespace ORDER_BOOK_PACKAGE {
             order.del_id=0;
             this->SEND_ORDER(order);
         }
+        void NOTIFY_FILL(ORDER& order, LL fill_qty, LL remaining_qty, LL fill_price){
+            auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(order.session_id);
+            if (!sp) return;
+            if (remaining_qty==0){
+                sp->writeToClient(CONVERSION_PACKAGE::ENCODE_FULL_FILL(order, fill_qty, fill_price));
+                this->killed_orders.erase(order.order_id);
+            } else {
+                sp->writeToClient(CONVERSION_PACKAGE::ENCODE_PARTIAL_FILL(order, fill_qty, remaining_qty, fill_price));
+            }
+        }
         void SEND_FILLED(ORDER& order){
            // order.ptr->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes(INVALID_ORDER_ID, 4));
         }
@@ -71,28 +81,19 @@ namespace ORDER_BOOK_PACKAGE {
                ORDER& bid_order = this->bids.begin()->second.front();
                ORDER& ask_order = this->asks.begin()->second.front();
                if (bid_order.price_level >= ask_order.price_level){
-                  std::deque<ORDER>& bid_orders = this->bids.begin()->second;
-                  std::deque<ORDER>& ask_orders = this->asks.begin()->second;
-                  if (bid_order.qty>=ask_order.qty){
-                     bid_order.qty-=ask_order.qty;
-                     ask_orders.pop_front();
-                     if (bid_order.qty==0) bid_orders.pop_front();
-                  } else {
-                     ask_order.qty-=bid_order.qty;
-                     bid_orders.pop_front();
-                     if (ask_order.qty==0) ask_orders.pop_front();
-                  }
-
-                  // price level erasure logic
-                  if (bid_orders.empty()) {
-                     LL it_bid = this->bids.begin()->first;
-                     this->bids.erase(it_bid);
-                  }
-                  if (ask_orders.empty()) {
-                     LL it_ask = this->asks.begin()->first;
-                     this->asks.erase(it_ask);
-                  }
-               } else break;
+                    std::deque<ORDER>& bid_orders = this->bids.begin()->second;
+                    std::deque<ORDER>& ask_orders = this->asks.begin()->second;
+                    LL fill_qty = std::min(bid_order.qty, ask_order.qty);
+                    LL fill_price = ask_order.price_level;
+                    bid_order.qty -= fill_qty;
+                    ask_order.qty -= fill_qty;
+                    this->NOTIFY_FILL(bid_order, fill_qty, bid_order.qty, fill_price);
+                    this->NOTIFY_FILL(ask_order, fill_qty, ask_order.qty, fill_price);
+                    if (bid_order.qty==0) bid_orders.pop_front();
+                    if (ask_order.qty==0) ask_orders.pop_front();
+                    if (bid_orders.empty()) { LL k=this->bids.begin()->first; this->bids.erase(k); }
+                    if (ask_orders.empty()) { LL k=this->asks.begin()->first; this->asks.erase(k); }
+                } else break;
               
 
             }
@@ -134,7 +135,7 @@ namespace ORDER_BOOK_PACKAGE {
                 std::deque<ORDER>& orders = spread.begin()->second;
                 ORDER& top_order = orders.front();
                 if (auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(top_order.session_id)) {
-                    sp->writeToClient("C"+CONVERSION_PACKAGE::number_to_bytes<LL>(top_order.qty, QTY_BYTES));
+                    sp->writeToClient(CONVERSION_PACKAGE::ENCODE_KILL_CONFIRM(top_order));
                 }
                 this->killed_orders.erase(top_order.order_id);
                 orders.pop_front();

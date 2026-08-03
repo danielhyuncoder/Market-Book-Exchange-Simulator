@@ -76,18 +76,31 @@ namespace CLIENT_PACKAGE {
          private:
          void ClientTCPListener(){
             auto self_ptr = shared_from_this();
-            this->socketPtr->async_read_some(boost::asio::buffer(data, 2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES), [this, self_ptr](boost::system::error_code ec, size_t bytes_read) {
-                if (!ec){
-                    std::string msg(data.data(), bytes_read);
-                    if (msg[0]=='A') {
-                        CONVERSION_PACKAGE::DECODE_ACK(msg);
-                    } else CONVERSION_PACKAGE::DECODE_ERROR(msg);
-                }
-                ClientTCPListener();
+            boost::asio::async_read(*this->socketPtr, boost::asio::buffer(type_byte, 1),
+                [this, self_ptr](boost::system::error_code ec, size_t) {
+                    if (ec) return;
+                    char type = type_byte[0];
+                    int body_len = CONVERSION_PACKAGE::RESPONSE_BODY_LENGTH(type);
+                    if (body_len <= 0 || body_len > (int)data.size()) { ClientTCPListener(); return; }
+                    boost::asio::async_read(*this->socketPtr, boost::asio::buffer(data.data(), body_len),
+                        [this, self_ptr, type, body_len](boost::system::error_code ec2, size_t bytes_read){
+                        if (!ec2){
+                            std::string body(data.data(), bytes_read);
+                            switch(type){
+                                case 'A': CONVERSION_PACKAGE::DECODE_ACK(body); break;
+                                case 'F': CONVERSION_PACKAGE::DECODE_FULL_FILL(body); break;
+                                case 'P': CONVERSION_PACKAGE::DECODE_PARTIAL_FILL(body); break;
+                                case 'K': CONVERSION_PACKAGE::DECODE_KILL_CONFIRM(body); break;
+                                case 'J': CONVERSION_PACKAGE::DECODE_ERROR(body); break;
+                            }
+                        }
+                        ClientTCPListener();
+                    });
             });
-         } 
+         }
+         std::array<char, 1> type_byte;
+         std::array<char, MAX_RESPONSE_BODY_BYTES> data;
          boost::asio::io_context io_context;
          std::shared_ptr<tcp::socket> socketPtr;  
-         std::array<char, 2+SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES> data;
      };
 };

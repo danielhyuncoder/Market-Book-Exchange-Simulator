@@ -52,6 +52,43 @@ class CONVERSION_PACKAGE {
         if (CONVERSION_LOGS) std::cout << "MODIFY_ORDER_CONVERSION: " << order.qty  << " : " << order.price_level << " : " << order.del_id << std::endl;
         return std::move(order);
     };
+    static std::string ENCODE_ACK(ORDER& order, char request_type_char){
+        std::string msg = "A";
+        msg += request_type_char;
+        msg += (order.order_type==ORDER_TYPE::BUY ? 'B' : 'S');
+        for (int i=0;i<SYMBOL_BYTES;i++) msg+=order.symbol[i];
+        msg += number_to_bytes<LL>(order.qty, QTY_BYTES);
+        msg += number_to_bytes<LL>(order.price_level, PRICE_BYTES);
+        msg += number_to_bytes<LL>(order.order_id, ID_BYTES);
+        msg += number_to_bytes<LL>(order.del_id, ID_BYTES);
+        return msg;
+    }
+    static std::string ENCODE_FULL_FILL(ORDER& order, LL fill_qty, LL fill_price){
+        std::string msg = "F";
+        msg += (order.order_type==ORDER_TYPE::BUY ? 'B' : 'S');
+        for (int i=0;i<SYMBOL_BYTES;i++) msg+=order.symbol[i];
+        msg += number_to_bytes<LL>(order.order_id, ID_BYTES);
+        msg += number_to_bytes<LL>(fill_qty, QTY_BYTES);
+        msg += number_to_bytes<LL>(fill_price, PRICE_BYTES);
+        return msg;
+    }
+    static std::string ENCODE_PARTIAL_FILL(ORDER& order, LL fill_qty, LL remaining_qty, LL fill_price){
+        std::string msg = "P";
+        msg += (order.order_type==ORDER_TYPE::BUY ? 'B' : 'S');
+        for (int i=0;i<SYMBOL_BYTES;i++) msg+=order.symbol[i];
+        msg += number_to_bytes<LL>(order.order_id, ID_BYTES);
+        msg += number_to_bytes<LL>(fill_qty, QTY_BYTES);
+        msg += number_to_bytes<LL>(remaining_qty, QTY_BYTES);
+        msg += number_to_bytes<LL>(fill_price, PRICE_BYTES);
+        return msg;
+    }
+    static std::string ENCODE_KILL_CONFIRM(ORDER& order){
+        std::string msg = "K";
+        for (int i=0;i<SYMBOL_BYTES;i++) msg+=order.symbol[i];
+        msg += number_to_bytes<LL>(order.order_id, ID_BYTES);
+        msg += number_to_bytes<LL>(order.qty, QTY_BYTES);
+        return msg;
+    }
     template<typename N>
     static constexpr std::string number_to_bytes(N number, const int num_bytes){
         std::string msg="";

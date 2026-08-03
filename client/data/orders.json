@@ -1,9 +1,12 @@
 {
     "orders": [
        {
-    "type": "KILL",
+    "type": "MODIFY",
     "symbol": "APPL",
-    "order_id": 4
+    "price_level": 250,
+    "quantity": 3,
+    "order_type": "B",
+    "order_id": 3
 }
     ]
 }
