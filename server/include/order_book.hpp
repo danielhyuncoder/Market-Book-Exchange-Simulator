@@ -32,7 +32,7 @@ namespace ORDER_BOOK_PACKAGE {
             
         }
         void SEND_ORDER(ORDER order){
-            this->seq_len.fetch_add(1);
+            //this->seq_len.fetch_add(1);
             this->killed_orders[order.del_id]=false;
             if (order.order_type == ORDER_TYPE::BUY){
                 this->bids[order.price_level].push_back(std::move(order));
@@ -42,7 +42,7 @@ namespace ORDER_BOOK_PACKAGE {
         
         }
         void KILL_ORDER(ORDER& order){
-            this->seq_len.fetch_add(1);
+            //this->seq_len.fetch_add(1);
             if (this->killed_orders.find(order.del_id)==this->killed_orders.end()) {
                 if (auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(order.session_id)) {
                     sp->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(INVALID_ORDER_ID, 4));
@@ -52,7 +52,7 @@ namespace ORDER_BOOK_PACKAGE {
             this->killed_orders[order.del_id]=true;
         }
         void MODIFY_ORDER(ORDER order){
-            this->seq_len.fetch_add(-1);
+            //this->seq_len.fetch_add(-1);
             this->KILL_ORDER(order);
             order.del_id=0;
             this->SEND_ORDER(order);
@@ -186,13 +186,14 @@ namespace ORDER_BOOK_PACKAGE {
                 } else {
                     this->shards[order_hash]->priv_mp[symbol_hash].KILL_ORDER(order);
                 }
+                this->shards[order_hash]->priv_mp[symbol_hash].UPDATE_BOOK();
                 LL seq_len=this->shards[order_hash]->priv_mp[symbol_hash].seq_len.load();
                 if ((seq_len % SNAPSHOT_FREQUENCY) == 0){
                     std::string sym = "";
                     for (int i =0;i<4;i++) sym += order.symbol[i];
                     std::future<void> res = std::async(std::launch::async, &SERVER_PACKAGE::OB_MCAST_FEED::SEND_BROADCAST, &this->shards[order_hash]->snapshot_broadcaster, this->shards[order_hash]->priv_mp[symbol_hash].CREATE_SNAPSHOT(), std::move(sym),seq_len);
                 }
-                this->shards[order_hash]->priv_mp[symbol_hash].UPDATE_BOOK();
+                
             }
         }
         LL assign_order_id() {

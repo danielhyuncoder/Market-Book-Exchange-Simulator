@@ -3,9 +3,9 @@
         {
             "type": "SEND",
             "symbol": "APPL",
-            "price_level": 254,
-            "quantity": 1,
-            "order_type": "B"
+            "price_level": 660,
+            "quantity": 10,
+            "order_type": "A"
         }
     ]
 }

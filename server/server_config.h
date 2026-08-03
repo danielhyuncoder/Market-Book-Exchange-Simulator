@@ -10,9 +10,9 @@
 
 // Define TCP message byte sizes
 #define SYMBOL_BYTES 4
-#define QTY_BYTES 8
-#define PRICE_BYTES 8
-#define ID_BYTES 8
+#define QTY_BYTES 4
+#define PRICE_BYTES 4
+#define ID_BYTES 4
 // Define Market Book logic
 #define QUEUE_SIZE 1024
 #define NUM_SHARDS 16

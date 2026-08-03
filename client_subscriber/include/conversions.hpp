@@ -28,12 +28,12 @@ class CONVERSION_PACKAGE {
        if (PRINT_SNAPSHOT)
         std::cout << client_snapshot.symbol << std::endl
                   << "SEQ_LEN: " << client_snapshot.seq_len << std::endl
-                  << "ASKS:" << std::endl;
+                  << "BIDS:" << std::endl;
 
        constexpr int ORDER_BYTES = ID_BYTES + PRICE_BYTES + QTY_BYTES;
 
        for (int i = 0; i < SNAPSHOT_LEN; i++) {
-           CLIENT_ORDER& order = client_snapshot.sell_side[i];
+           CLIENT_ORDER& order = client_snapshot.buy_side[i];
            order.order_id = byte_conversion<LL>(message, offset, offset + ID_BYTES);
            offset += ID_BYTES;
 
@@ -46,11 +46,11 @@ class CONVERSION_PACKAGE {
            if (PRINT_SNAPSHOT) std::cout << order.order_id << ", " << order.price_level << ", " << order.qty << std::endl;
        }
 
-       if (PRINT_SNAPSHOT) std::cout << "BIDS:" << std::endl;
+       if (PRINT_SNAPSHOT) std::cout << "ASKS:" << std::endl;
 
    
        for (int i = 0; i < SNAPSHOT_LEN; i++) {
-          CLIENT_ORDER& order = client_snapshot.buy_side[i];
+          CLIENT_ORDER& order = client_snapshot.sell_side[i];
           order.order_id = byte_conversion<LL>(message, offset, offset + ID_BYTES);
           offset += ID_BYTES;
 

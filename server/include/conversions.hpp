@@ -19,11 +19,11 @@ class CONVERSION_PACKAGE {
         ORDER order;
         order.order_type = message[1]=='B' ? ORDER_TYPE::BUY : ORDER_TYPE::SELL;
         order.request_type = REQUEST_TYPE::SEND_ORDER;
-        for (int i = 2;i<=SYMBOL_BYTES+2;i++){
+        for (int i = 2;i<SYMBOL_BYTES+2;i++){
             order.symbol[i-2] =message[i];
         }
-        order.qty=byte_conversion(message, SYMBOL_BYTES+3, SYMBOL_BYTES+QTY_BYTES+1);
-        order.price_level=byte_conversion(message, SYMBOL_BYTES+QTY_BYTES+3, SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+1);
+        order.qty=byte_conversion(message, SYMBOL_BYTES+2, SYMBOL_BYTES+QTY_BYTES+1);
+        order.price_level=byte_conversion(message, SYMBOL_BYTES+QTY_BYTES+2, SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+1);
 
         if (CONVERSION_LOGS) std::cout << "SEND_ORDER_CONVERSION: " <<  order.qty  << " : " << order.price_level << std::endl;
         return std::move(order);
@@ -32,10 +32,10 @@ class CONVERSION_PACKAGE {
         ORDER order;
         order.order_type = message[1]=='B' ? ORDER_TYPE::BUY : ORDER_TYPE::SELL;
         order.request_type = REQUEST_TYPE::KILL_ORDER;
-        for (int i = 2;i<=SYMBOL_BYTES+2;i++){
+        for (int i = 2;i<SYMBOL_BYTES+2;i++){
             order.symbol[i-2] =message[i];
         }
-        order.del_id=byte_conversion(message, SYMBOL_BYTES+3, SYMBOL_BYTES+ID_BYTES+1);
+        order.del_id=byte_conversion(message, SYMBOL_BYTES+2, SYMBOL_BYTES+ID_BYTES+1);
         if (CONVERSION_LOGS) std::cout << "KILL_ORDER_CONVERSION: " << order.del_id << std::endl;
         return std::move(order);
     };
@@ -43,12 +43,12 @@ class CONVERSION_PACKAGE {
         ORDER order;
         order.order_type = message[1]=='B' ? ORDER_TYPE::BUY : ORDER_TYPE::SELL;
         order.request_type = REQUEST_TYPE::MODIFY_ORDER;
-        for (int i = 2;i<=SYMBOL_BYTES+2;i++){
+        for (int i = 2;i<SYMBOL_BYTES+2;i++){
             order.symbol[i-2] =message[i];
         }
-        order.qty=byte_conversion(message, SYMBOL_BYTES+3, SYMBOL_BYTES+QTY_BYTES+1);
-        order.price_level=byte_conversion(message, SYMBOL_BYTES+QTY_BYTES+3, SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+1);
-        order.del_id=byte_conversion(message, SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+3,  SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES+1);
+        order.qty=byte_conversion(message, SYMBOL_BYTES+2, SYMBOL_BYTES+QTY_BYTES+1);
+        order.price_level=byte_conversion(message, SYMBOL_BYTES+QTY_BYTES+2, SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+1);
+        order.del_id=byte_conversion(message, SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+2,  SYMBOL_BYTES+QTY_BYTES+PRICE_BYTES+ID_BYTES+1);
         if (CONVERSION_LOGS) std::cout << "MODIFY_ORDER_CONVERSION: " << order.qty  << " : " << order.price_level << " : " << order.del_id << std::endl;
         return std::move(order);
     };
