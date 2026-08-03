@@ -1,11 +1,9 @@
 {
     "orders": [
-        {
-            "type": "SEND",
-            "symbol": "APPL",
-            "price_level": 660,
-            "quantity": 10,
-            "order_type": "A"
-        }
+       {
+    "type": "KILL",
+    "symbol": "APPL",
+    "order_id": 4
+}
     ]
 }

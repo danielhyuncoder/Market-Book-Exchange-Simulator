@@ -33,7 +33,8 @@ namespace ORDER_BOOK_PACKAGE {
         }
         void SEND_ORDER(ORDER order){
             //this->seq_len.fetch_add(1);
-            this->killed_orders[order.del_id]=false;
+            //this->killed_orders[order.del_id]=false;
+            this->killed_orders[order.order_id]=false;
             if (order.order_type == ORDER_TYPE::BUY){
                 this->bids[order.price_level].push_back(std::move(order));
             } else {
@@ -103,7 +104,8 @@ namespace ORDER_BOOK_PACKAGE {
                 if (l>=SNAPSHOT_LEN) break;
                 for (ORDER& order : orders.second){
                     if (l>=SNAPSHOT_LEN) break;
-                    if (this->killed_orders.find(order.order_id)!=this->killed_orders.end()) continue;
+                    auto k_it = this->killed_orders.find(order.order_id);
+                    if (k_it != this->killed_orders.end() && k_it->second) continue;
                     snapshot.buy_side[l++]=order;
                 }
             }
@@ -112,7 +114,8 @@ namespace ORDER_BOOK_PACKAGE {
                 if (l>=SNAPSHOT_LEN) break;
                 for (ORDER& order : orders.second){
                     if (l>=SNAPSHOT_LEN) break;
-                    if (this->killed_orders.find(order.order_id)!=this->killed_orders.end()) continue;
+                    auto k_it = this->killed_orders.find(order.order_id);
+                    if (k_it != this->killed_orders.end() && k_it->second) continue;
                     snapshot.sell_side[l++]=order;
                 }
             }
@@ -125,7 +128,9 @@ namespace ORDER_BOOK_PACKAGE {
         
         template <typename spread_t>
         void REMOVE_ORDERS(spread_t& spread){
-            while (!spread.empty() && this->killed_orders.find(spread.begin()->second.front().order_id)!=this->killed_orders.end()){
+            while (!spread.empty()){
+                auto k_it = this->killed_orders.find(spread.begin()->second.front().order_id);
+                if (k_it == this->killed_orders.end() || !k_it->second) break;
                 std::deque<ORDER>& orders = spread.begin()->second;
                 ORDER& top_order = orders.front();
                 if (auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(top_order.session_id)) {
