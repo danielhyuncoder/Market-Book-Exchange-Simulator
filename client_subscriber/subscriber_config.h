@@ -10,4 +10,4 @@
 
 // Define Client Subscriber Socket 
 #define MULTICAST_IP "239.192.37.42"
-#define MULTICAST_PORT 30001
+#define MULTICAST_PORT 30002

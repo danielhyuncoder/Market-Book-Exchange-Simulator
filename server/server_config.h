@@ -5,7 +5,7 @@
 #define SERVER_PORT 8080
 #define MULTICAST_PORT 9000
 #define NUM_SERVER_THREADS 1
-#define NUM_MARKET_BOOK_THREADS 1
+#define NUM_MARKET_BOOK_THREADS 6
 #define MULTICAST_IP "239.192.37.42"
 
 // Define TCP message byte sizes
@@ -28,7 +28,7 @@
 
 // Define Developer Debug
 #define CONVERSION_LOGS false
-#define PRINT_SYMBOL_HASHES false
+#define PRINT_SYMBOL_HASHES true
 // Define Error Codes
 #define MALFORMED_REQUEST 100
 #define SYMBOL_NOT_FOUND 101

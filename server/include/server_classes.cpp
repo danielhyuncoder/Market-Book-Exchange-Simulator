@@ -27,7 +27,7 @@ void SERVER_PACKAGE::MatchingSession::readListener(ORDER_BOOK_PACKAGE::MARKET_BO
                     current_order.order_id=market_book.assign_order_id();
                     current_order.session_id = self->id();
                     this->writeToClient(CONVERSION_PACKAGE::ENCODE_ACK(current_order, msg[0]));
-                    market_book.market_orders->push(std::move(current_order));
+                    market_book.submit_order(std::move(current_order));
 
                 }
                 readListener(market_book);
@@ -57,9 +57,13 @@ SERVER_PACKAGE::ServerHandler::ServerHandler(){
             
         });
     }
+    // Partition the NUM_SHARDS shards evenly across NUM_MARKET_BOOK_THREADS
+    size_t shards_per_thread = NUM_SHARDS / NUM_MARKET_BOOK_THREADS;
     for (int i =0;i<NUM_MARKET_BOOK_THREADS;i++){
-        this->threads.emplace_back([this, &market_book]{
-             market_book.market_listener();
+        size_t start = static_cast<size_t>(i) * shards_per_thread;
+        size_t end = (i == NUM_MARKET_BOOK_THREADS - 1) ? static_cast<size_t>(NUM_SHARDS) : start + shards_per_thread;
+        this->threads.emplace_back([this, &market_book, start, end]{
+             market_book.market_listener(start, end);
         });
     }
     

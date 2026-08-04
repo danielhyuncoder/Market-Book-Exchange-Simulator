@@ -146,69 +146,85 @@ namespace ORDER_BOOK_PACKAGE {
         
 
     };
+ 
+    inline void hash_symbol(const char* symbol, LL& symbol_hash, size_t& shard_index) {
+        uint32_t sym32 = 0;
+        std::memcpy(&sym32, symbol, SYMBOL_BYTES);
+        uint64_t mixed = static_cast<uint64_t>(sym32) * 0x9E3779B97F4A7C15ULL;
+        symbol_hash = static_cast<LL>(mixed);
+        shard_index = (mixed >> 48) & (NUM_SHARDS - 1);
+    }
+
     struct alignas(64) ORDER_BOOK_SHARD {
-        ORDER_BOOK_SHARD(boost::asio::io_context& ctx,LL port) : snapshot_broadcaster(ctx, port),port(port) {
+        ORDER_BOOK_SHARD(boost::asio::io_context& ctx,LL port)
+            : snapshot_broadcaster(ctx, port), port(port), queue(QUEUE_SIZE) {
 
         }
-        ORDER_BOOK_SHARD(ORDER_BOOK_SHARD&&) = default; 
-        std::mutex mtx;
+        ORDER_BOOK_SHARD(ORDER_BOOK_SHARD&&) = default;
+
+        boost::lockfree::queue<ORDER> queue;
         std::unordered_map<LL, ORDER_BOOK> priv_mp;
         SERVER_PACKAGE::OB_MCAST_FEED snapshot_broadcaster;
         LL port =0;
     };
     class MARKET_BOOK {
-        
+
         public:
-        std::unique_ptr<boost::lockfree::queue<ORDER>> market_orders = std::make_unique<boost::lockfree::queue<ORDER>>(QUEUE_SIZE);
-        void market_listener() {
-            
+
+        void submit_order(ORDER order) {
+            LL symbol_hash; size_t shard_index;
+            hash_symbol(order.symbol, symbol_hash, shard_index);
+            this->shards[shard_index]->queue.push(std::move(order));
+        }
+
+
+        bool drain_one(size_t shard_index) {
+            ORDER order;
+            if (!this->shards[shard_index]->queue.pop(order)) return false;
+            LL symbol_hash; size_t sidx;
+            hash_symbol(order.symbol, symbol_hash, sidx);
+            process_one(sidx, order, symbol_hash);
+            return true;
+        }
+
+
+        void market_listener(size_t shard_start, size_t shard_end) {
             while (true) {
-                ORDER order;
-                if (!this->market_orders->pop(order)) continue;
-                process_one(order);
-                
+                for (size_t s = shard_start; s < shard_end; ++s) {
+                    drain_one(s);
+                }
             }
         }
-        void process_one(ORDER& order){
-            /*
-            std::string str = "";
-            for (int i =0;i<SYMBOL_BYTES;i++){
-                str+=order.symbol[i];
-            }*/
-            std::string_view symbol_view(order.symbol, SYMBOL_BYTES);
-            //size_t raw_hash = this->shard_hash_func(symbol_view);
-            uint64_t raw_hash = *reinterpret_cast<const uint64_t*>(order.symbol);
-            //size_t raw_hash = this->shard_hash_func(str);
-            LL symbol_hash = static_cast<LL>(raw_hash);
-            
-            //size_t order_hash = raw_hash % static_cast<size_t>(NUM_SHARDS);
 
-            
-
-            size_t order_hash = raw_hash & (NUM_SHARDS - 1);
-            std::lock_guard<std::mutex> guard(this->shards[order_hash]->mtx);
-            
-            if (this->shards[order_hash]->priv_mp.find(symbol_hash)==this->shards[order_hash]->priv_mp.end()){
+        void process_one(size_t shard_index, ORDER& order, LL symbol_hash){
+            auto& shard = *this->shards[shard_index];
+            if (shard.priv_mp.find(symbol_hash) == shard.priv_mp.end()) {
                 if (auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(order.session_id)) {
                     sp->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(SYMBOL_NOT_FOUND, 4));
                 }
                 return;
             }
 
-            this->shards[order_hash]->priv_mp[symbol_hash].seq_len.fetch_add(1);
+            ORDER_BOOK& book = shard.priv_mp[symbol_hash];
+
+            book.seq_len.fetch_add(1);
             if (order.request_type == REQUEST_TYPE::SEND_ORDER) {
-                this->shards[order_hash]->priv_mp[symbol_hash].SEND_ORDER(std::move(order));
+                book.SEND_ORDER(std::move(order));
             } else if (order.request_type == REQUEST_TYPE::MODIFY_ORDER){
-                this->shards[order_hash]->priv_mp[symbol_hash].MODIFY_ORDER(std::move(order));
+                book.MODIFY_ORDER(std::move(order));
             } else {
-                this->shards[order_hash]->priv_mp[symbol_hash].KILL_ORDER(order);
+                book.KILL_ORDER(order);
             }
-            this->shards[order_hash]->priv_mp[symbol_hash].UPDATE_BOOK();
-            LL seq_len=this->shards[order_hash]->priv_mp[symbol_hash].seq_len.load();
+            book.UPDATE_BOOK();
+            LL seq_len = book.seq_len.load();
             if ((seq_len % SNAPSHOT_FREQUENCY) == 0){
                 std::string sym = "";
                 for (int i =0;i<4;i++) sym += order.symbol[i];
-                std::future<void> res = std::async(std::launch::async, &SERVER_PACKAGE::OB_MCAST_FEED::SEND_BROADCAST, &this->shards[order_hash]->snapshot_broadcaster, this->shards[order_hash]->priv_mp[symbol_hash].CREATE_SNAPSHOT(), std::move(sym),seq_len);
+                
+                 //std::future<void> res = std::async(std::launch::async, &SERVER_PACKAGE::OB_MCAST_FEED::SEND_BROADCAST, &shard.snapshot_broadcaster, book.CREATE_SNAPSHOT(), std::move(sym),seq_len);
+                std::thread(&SERVER_PACKAGE::OB_MCAST_FEED::SEND_BROADCAST,
+                            &shard.snapshot_broadcaster,
+                            book.CREATE_SNAPSHOT(), std::move(sym), seq_len).detach();
             }
         }
         LL assign_order_id() {
@@ -222,18 +238,16 @@ namespace ORDER_BOOK_PACKAGE {
                this->shards.push_back(std::make_shared<ORDER_BOOK_SHARD>(ctx, (long long)(30001+i)));
            }
            for (std::string& symbol : symbols){
-               size_t raw_hash = shard_hash_func(symbol);
-               LL hash = static_cast<LL>(raw_hash);
-               size_t shard_index = raw_hash % static_cast<size_t>(NUM_SHARDS);
-               this->shards[shard_index]->priv_mp[hash];
-               if (PRINT_SYMBOL_HASHES) std::cout << symbol << " PORT -> " << (30001+(hash%NUM_SHARDS)) << std::endl;
+               char sym_bytes[SYMBOL_BYTES] = {0};
+               std::memcpy(sym_bytes, symbol.data(), std::min<size_t>(SYMBOL_BYTES, symbol.size()));
+               LL symbol_hash; size_t shard_index;
+               hash_symbol(sym_bytes, symbol_hash, shard_index);
+               this->shards[shard_index]->priv_mp[symbol_hash];
+               if (PRINT_SYMBOL_HASHES) std::cout << symbol << " PORT -> " << (30001+shard_index) << std::endl;
            }
-
-           
         }
         private:
         std::vector<std::shared_ptr<ORDER_BOOK_SHARD>> shards;
         std::atomic<LL> current_id;
-        std::hash<std::string_view> shard_hash_func;
     };
 };
