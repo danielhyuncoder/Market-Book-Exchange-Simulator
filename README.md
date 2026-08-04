@@ -301,7 +301,10 @@ Startup order matters — bring subscribers up first, then the server, then the 
 | 104 | Invalid Order ID |
 
 # Benchmarks (Done using the Google Benchmark library):
-### NOTE: These benchmarks were generated using the code found in the bench folder of this repository.
+## NOTE: These benchmarks were generated using the code found in the bench folder of this repository. These benchmarks were run with the UDP multicast system and the symbol verification systems disabled for a more accurate measure of raw execution speeds. The settings assumed NUM_MARKET_BOOK_THREADS = 4, NUM_SERVER_THREADS = 1, NUM_SHARDS = 16 in the server configuration macros. The machine used for execution was on Windows OS with an 8-core CPU.
+
+### Orderbook Operation Benchmarks
+
 | Benchmark                                   | Time    | CPU     | Iterations |
 |---------------------------------------------|---------|---------|------------|
 | BM_SendOrder_NoMatch                        | 381 ns  | 377 ns  | 2,488,889  |
@@ -311,13 +314,23 @@ Startup order matters — bring subscribers up first, then the server, then the 
 | BM_SendOrder_AtDepth/1000                   | 379 ns  | 384 ns  | 2,036,364  |
 | BM_SendOrder_AtDepth/10000                  | 395 ns  | 391 ns  | 2,036,364  |
 | BM_SendOrder_AtDepth/100000                 | 532 ns  | 531 ns  | 1,000,000  |
-| BM_SubmitOrder_SameSymbol/threads:1         | 143 ns  | 140 ns  | 5,600,000  |
+
+### Marketbook Operation Benchmarks for same symbol operations.
+
+| Benchmark                                   | Time    | CPU     | Iterations |
+|---------------------------------------------|---------|---------|------------|
+| BM_SubmitOrder_SameSymbol/threads:1         | 143 ns  | 140 ns  | 5,600,000  | -> Baseline speed. Additional cores cause unnecessary amounts of CAS operation retries.
 | BM_SubmitOrder_SameSymbol/threads:2         | 280 ns  | 279 ns  | 2,240,000  |
 | BM_SubmitOrder_SameSymbol/threads:4         | 779 ns  | 769 ns  | 1,056,336  |
-| BM_SubmitOrder_SameSymbol/threads:8         | 1359 ns | 1500 ns |   448,000  |
-| BM_SubmitOrder_SameSymbol/threads:16        | 2368 ns | 2178 ns |   265,488  |
+| BM_SubmitOrder_SameSymbol/threads:8         | 1359 ns | 1500 ns |   448,000  | 
+
+### Marketbook Operation Benchmarks for different symbol operations.
+
+| Benchmark                                   | Time    | CPU     | Iterations |
+|---------------------------------------------|---------|---------|------------|
 | BM_SubmitOrder_Spread/threads:1             | 149 ns  | 148 ns  | 5,600,000  |
 | BM_SubmitOrder_Spread/threads:2             | 146 ns  | 148 ns  | 5,270,588  |
-| BM_SubmitOrder_Spread/threads:4             | 168 ns  | 164 ns  | 4,000,000  |
-| BM_SubmitOrder_Spread/threads:8             | 280 ns  | 265 ns  | 4,014,080  |
-| BM_SubmitOrder_Spread/threads:16            | 524 ns  | 449 ns  | 1,600,000  |
+| BM_SubmitOrder_Spread/threads:4             | 168 ns  | 164 ns  | 4,000,000  | -> Max core capacity where threads ran freely on individual threads.
+| BM_SubmitOrder_Spread/threads:8             | 280 ns  | 265 ns  | 4,014,080  | -> Introduces some context switches, hence the increase in runtime.
+
+
