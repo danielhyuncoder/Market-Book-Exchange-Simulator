@@ -265,11 +265,11 @@ Startup order matters — bring subscribers up first, then the server, then the 
 .\client_subscriber\build\Debug\ClientSubscriber.exe
 
 # 2. Start the matching server (loads server/data/symbols.json)
-.\server\build\Debug\HFTExchangeSimulator.exe
+.\build\Debug\HFTExchangeSimulator.exe
 
 # 3. Run the client — replays client/data/orders.json, then stays connected
 #    listening for ACK/ERROR responses
-.\client\build\Debug\HFTExchangeSimulatorClient.exe
+.\build\Debug\HFTExchangeSimulatorClient.exe
 ```
 
 ## Configuration Reference
@@ -299,3 +299,25 @@ Startup order matters — bring subscribers up first, then the server, then the 
 | 102 | Invalid Quantity |
 | 103 | Invalid Price |
 | 104 | Invalid Order ID |
+
+# Benchmarks (Done using the Google Benchmark library):
+### NOTE: These benchmarks were generated using the code found in the bench folder of this repository.
+| Benchmark                                   | Time    | CPU     | Iterations |
+|---------------------------------------------|---------|---------|------------|
+| BM_SendOrder_NoMatch                        | 381 ns  | 377 ns  | 2,488,889  |
+| BM_SendOrder_FullMatch                      | 1051 ns | 1046 ns |   896,000  |
+| BM_CreateSnapshot                           | 176 ns  | 176 ns  | 4,072,727  |
+| BM_SendOrder_AtDepth/100                    | 351 ns  | 353 ns  | 2,036,364  |
+| BM_SendOrder_AtDepth/1000                   | 379 ns  | 384 ns  | 2,036,364  |
+| BM_SendOrder_AtDepth/10000                  | 395 ns  | 391 ns  | 2,036,364  |
+| BM_SendOrder_AtDepth/100000                 | 532 ns  | 531 ns  | 1,000,000  |
+| BM_SubmitOrder_SameSymbol/threads:1         | 143 ns  | 140 ns  | 5,600,000  |
+| BM_SubmitOrder_SameSymbol/threads:2         | 280 ns  | 279 ns  | 2,240,000  |
+| BM_SubmitOrder_SameSymbol/threads:4         | 779 ns  | 769 ns  | 1,056,336  |
+| BM_SubmitOrder_SameSymbol/threads:8         | 1359 ns | 1500 ns |   448,000  |
+| BM_SubmitOrder_SameSymbol/threads:16        | 2368 ns | 2178 ns |   265,488  |
+| BM_SubmitOrder_Spread/threads:1             | 149 ns  | 148 ns  | 5,600,000  |
+| BM_SubmitOrder_Spread/threads:2             | 146 ns  | 148 ns  | 5,270,588  |
+| BM_SubmitOrder_Spread/threads:4             | 168 ns  | 164 ns  | 4,000,000  |
+| BM_SubmitOrder_Spread/threads:8             | 280 ns  | 265 ns  | 4,014,080  |
+| BM_SubmitOrder_Spread/threads:16            | 524 ns  | 449 ns  | 1,600,000  |
