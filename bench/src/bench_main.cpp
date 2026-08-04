@@ -45,6 +45,16 @@ static ORDER make_order(LL id, ORDER_TYPE side, LL price, LL qty) {
     o.request_type = REQUEST_TYPE::SEND_ORDER;
     return o;
 }
+static ORDER make_del_order(LL id, ORDER_TYPE side, LL price, LL qty, LL del_id) {
+    ORDER o;
+    o.order_id = id;
+    o.order_type = side;
+    o.price_level = price;
+    o.qty = qty;
+    o.request_type = REQUEST_TYPE::SEND_ORDER;
+    o.del_id=del_id;
+    return o;
+}
 
 static void BM_SendOrder_NoMatch(benchmark::State& state) {
     ORDER_BOOK book;
@@ -65,6 +75,29 @@ static void BM_SendOrder_FullMatch(benchmark::State& state) {
     });
 }
 BENCHMARK(BM_SendOrder_FullMatch);
+
+static void BM_SendOrder_Kill(benchmark::State& state) {
+    ORDER_BOOK book;
+    LL id = 1;
+    RunWithLatency(state, [&] {
+        book.SEND_ORDER(make_order(id++, ORDER_TYPE::BUY, 100, 10));
+        ORDER o = make_del_order(id+1, ORDER_TYPE::BUY, 100, 10, id++);
+        book.KILL_ORDER(o);
+        book.UPDATE_BOOK();
+    });
+}
+BENCHMARK(BM_SendOrder_Kill);
+
+static void BM_SendOrder_Modify(benchmark::State& state) {
+    ORDER_BOOK book;
+    book.SEND_ORDER(make_order(1, ORDER_TYPE::BUY, 100, 10));
+    LL id = 1;
+    RunWithLatency(state, [&] {
+        book.MODIFY_ORDER(make_del_order(id+1, ORDER_TYPE::BUY, 100, 10, id++));
+        book.UPDATE_BOOK();
+    });
+}
+BENCHMARK(BM_SendOrder_Modify);
 
 static void BM_CreateSnapshot(benchmark::State& state) {
     ORDER_BOOK book;

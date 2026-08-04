@@ -23,3 +23,7 @@
 5726	6401	8075749059306865	MarketBookBenchmarks.exe	2354462045bf5259
 21	6479	8075784947724268	CMakeFiles/MarketBookBenchmarks.dir/src/bench_main.cpp.obj	f25d1b4cb9dff45
 6480	7193	8075785012311101	MarketBookBenchmarks.exe	2354462045bf5259
+35	4848	8075849386832899	CMakeFiles/Repro.dir/src/repro_main.cpp.obj	9914f2f8a5d29cb8
+20	629	8075850250218665	Repro.exe	f7d624e42fa516c9
+14	5226	8075850250168662	CMakeFiles/MarketBookBenchmarks.dir/src/bench_main.cpp.obj	f25d1b4cb9dff45
+5226	5893	8075850302281839	MarketBookBenchmarks.exe	2354462045bf5259

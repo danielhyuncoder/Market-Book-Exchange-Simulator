@@ -532,12 +532,14 @@ namespace ORDER_BOOK_PACKAGE {
 
         void process_one(size_t shard_index, ORDER& order, LL symbol_hash) {
             auto& shard = *this->shards[shard_index];
+            
             if (shard.priv_mp.find(symbol_hash) == shard.priv_mp.end()) {
                 if (auto sp = SERVER_PACKAGE::SessionRegistry::instance().lock(order.session_id)) {
                     sp->writeToClient("J"+CONVERSION_PACKAGE::number_to_bytes<LL>(SYMBOL_NOT_FOUND, 4));
                 }
                 return;
             }
+            
             ORDER_BOOK& book = shard.priv_mp[symbol_hash];
 
             book.seq_len.fetch_add(1);
