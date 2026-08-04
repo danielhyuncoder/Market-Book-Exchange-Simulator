@@ -3,8 +3,38 @@
 #include <boost/asio.hpp>
 #include <thread>
 #include <atomic>
+#include <chrono>
+#include <vector>
+#include <algorithm>
 
 using namespace ORDER_BOOK_PACKAGE;
+
+
+template <typename Fn>
+static void RunWithLatency(benchmark::State& state, Fn&& fn) {
+    std::vector<double> latencies_ns;
+    latencies_ns.reserve(1 << 16);
+
+    for (auto _ : state) {
+        auto t0 = std::chrono::high_resolution_clock::now();
+        fn();
+        auto t1 = std::chrono::high_resolution_clock::now();
+        latencies_ns.push_back(
+            std::chrono::duration<double, std::nano>(t1 - t0).count());
+    }
+
+    if (!latencies_ns.empty()) {
+        std::sort(latencies_ns.begin(), latencies_ns.end());
+        size_t idx = static_cast<size_t>(0.99 * (latencies_ns.size() - 1));
+        double p99 = latencies_ns[idx];
+
+        const bool multithreaded = state.threads() > 1;
+        auto flag = multithreaded ? benchmark::Counter::kAvgThreads
+                                   : benchmark::Counter::kDefaults;
+
+        state.counters["p99_ns"] = benchmark::Counter(p99, flag);
+    }
+}
 
 static ORDER make_order(LL id, ORDER_TYPE side, LL price, LL qty) {
     ORDER o;
@@ -19,20 +49,20 @@ static ORDER make_order(LL id, ORDER_TYPE side, LL price, LL qty) {
 static void BM_SendOrder_NoMatch(benchmark::State& state) {
     ORDER_BOOK book;
     LL id = 1;
-    for (auto _ : state) {
+    RunWithLatency(state, [&] {
         book.SEND_ORDER(make_order(id++, ORDER_TYPE::BUY, 100, 10));
-    }
+    });
 }
 BENCHMARK(BM_SendOrder_NoMatch);
 
 static void BM_SendOrder_FullMatch(benchmark::State& state) {
     ORDER_BOOK book;
     LL id = 1;
-    for (auto _ : state) {
+    RunWithLatency(state, [&] {
         book.SEND_ORDER(make_order(id++, ORDER_TYPE::SELL, 100, 10));
         book.SEND_ORDER(make_order(id++, ORDER_TYPE::BUY, 100, 10));
         book.UPDATE_BOOK();
-    }
+    });
 }
 BENCHMARK(BM_SendOrder_FullMatch);
 
@@ -42,9 +72,9 @@ static void BM_CreateSnapshot(benchmark::State& state) {
         book.SEND_ORDER(make_order(i, ORDER_TYPE::BUY, 100 - i, 10));
         book.SEND_ORDER(make_order(i + 1000, ORDER_TYPE::SELL, 200 + i, 10));
     }
-    for (auto _ : state) {
+    RunWithLatency(state, [&] {
         benchmark::DoNotOptimize(book.CREATE_SNAPSHOT());
-    }
+    });
 }
 BENCHMARK(BM_CreateSnapshot);
 
@@ -55,10 +85,10 @@ static void BM_SendOrder_AtDepth(benchmark::State& state) {
     for (LL i = 0; i < depth; i++) {
         book.SEND_ORDER(make_order(id++, ORDER_TYPE::BUY, i, 10));
     }
-    for (auto _ : state) {
+    RunWithLatency(state, [&] {
         LL price = id % depth;
         book.SEND_ORDER(make_order(id++, ORDER_TYPE::BUY, price, 10));
-    }
+    });
 }
 BENCHMARK(BM_SendOrder_AtDepth)->Arg(100)->Arg(1000)->Arg(10000)->Arg(100000);
 
@@ -132,17 +162,17 @@ static void BM_SubmitOrder_SameSymbol(benchmark::State& state) {
     }
 
     LL id = state.thread_index() * 10000000LL;
-    for (auto _ : state) {
+    RunWithLatency(state, [&] {
         ORDER o = make_order(id++, ORDER_TYPE::BUY, 100, 10);
         std::memcpy(o.symbol, "APPL", SYMBOL_BYTES);   // every thread targets the SAME shard's queue
         mb->submit_order(std::move(o));
-    }
+    });
 
     if (state.thread_index() == 0) {
         drainer.reset();   // stop + join before the next configuration reuses these statics
     }
 }
-BENCHMARK(BM_SubmitOrder_SameSymbol)->ThreadRange(1, 16);
+BENCHMARK(BM_SubmitOrder_SameSymbol)->ThreadRange(1, 8);
 
 static void BM_SubmitOrder_Spread(benchmark::State& state) {
     static boost::asio::io_context ctx;
@@ -159,14 +189,14 @@ static void BM_SubmitOrder_Spread(benchmark::State& state) {
     // guaranteed to be the symbol that maps to shard == thread_index()
     std::string sym = shard_symbols[state.thread_index() % NUM_SHARDS];
     LL id = state.thread_index() * 10000000LL;
-    for (auto _ : state) {
+    RunWithLatency(state, [&] {
         ORDER o = make_order(id++, ORDER_TYPE::BUY, 100, 10);
         std::memcpy(o.symbol, sym.data(), SYMBOL_BYTES);
         mb->submit_order(std::move(o));
-    }
+    });
 
     if (state.thread_index() == 0) {
         drainer.reset();
     }
 }
-BENCHMARK(BM_SubmitOrder_Spread)->ThreadRange(1, 16);
+BENCHMARK(BM_SubmitOrder_Spread)->ThreadRange(1, 8);
