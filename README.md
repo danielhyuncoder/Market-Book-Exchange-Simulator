@@ -1,4 +1,5 @@
 # Market Book Exchange Simulator
+## NOTE: This is a refactored version of the original. The original utilized ineffective map->deque for the bid/ask levels in an orderbook. This version utilizes a price-tick sliding window on arrays in order to keep most operations in O(1) time complexity or worst case O(log n), alongside zero heap allocations.
 
 A three-process simulation of an exchange order-flow pipeline, built in C++20 with Boost.Asio: a **client** that submits orders over TCP, a **matching server** that validates, books, and matches those orders, and one or more **subscribers** that receive live order-book snapshots over UDP multicast.
 
@@ -299,3 +300,38 @@ Startup order matters — bring subscribers up first, then the server, then the 
 | 102 | Invalid Quantity |
 | 103 | Invalid Price |
 | 104 | Invalid Order ID |
+
+## Execution Benchmarks (made using Google Benchmarking):
+## NOTE: These benchmarks were generated using the code found in the bench folder of this repository. These benchmarks were run with the UDP multicast system and the symbol verification systems disabled for a more accurate measure of raw execution speeds. The settings assumed NUM_MARKET_BOOK_THREADS = 4, NUM_SERVER_THREADS = 1, NUM_SHARDS = 16 in the server configuration macros. The machine used for execution was on Windows OS with an 8-core CPU.
+
+### Orderbook Operation Benchmarks
+
+| Benchmark                                   | Time    | CPU     | Iterations | p99_ns     |
+|---------------------------------------------|---------|---------|------------|------------|
+| BM_SendOrder_NoMatch                        | 272 ns  | 268 ns  | 2,800,000  | 500        |
+| BM_SendOrder_FullMatch                      | 375 ns  | 376 ns  | 2,036,364  | 700        |
+| BM_SendOrder_Kill                           | 401 ns  | 393 ns  | 1,947,826  | 600        |
+| BM_SendOrder_Modify                         | 129 ns  | 129 ns  | 6,400,000  | 200        |
+| BM_CreateSnapshot                           | 145 ns  | 141 ns  | 4,977,778  | 200        |
+| BM_SendOrder_AtDepth/100                    | 263 ns  | 267 ns  | 2,635,294  | 400        |
+| BM_SendOrder_AtDepth/1000                   | 295 ns  | 291 ns  | 2,635,294  | 500        |
+| BM_SendOrder_AtDepth/10000                  | 270 ns  | 267 ns  | 2,635,294  | 400        |
+| BM_SendOrder_AtDepth/100000                 | 273 ns  | 273 ns  | 2,635,294  | 400        |
+
+### Marketbook Operation Benchmarks for same symbol operations.
+
+| Benchmark                                   | Time    | CPU     | Iterations | p99_ns     |
+|---------------------------------------------|---------|---------|------------|------------|
+| BM_SubmitOrder_SameSymbol/threads:1         | 188 ns  | 188 ns  | 3,733,333  | 400        |
+| BM_SubmitOrder_SameSymbol/threads:2         | 276 ns  | 272 ns  | 2,240,000  | 600        |
+| BM_SubmitOrder_SameSymbol/threads:4         | 598 ns  | 596 ns  |   995,556  | 2300       |
+| BM_SubmitOrder_SameSymbol/threads:8         | 1167 ns | 1221 ns |   448,000  | 8187.5     |
+
+### Marketbook Operation Benchmarks for same symbol operations.
+
+| Benchmark                                   | Time    | CPU     | Iterations | p99_ns     |
+|---------------------------------------------|---------|---------|------------|------------|
+| BM_SubmitOrder_Spread/threads:1             | 190 ns  | 185 ns  | 4,977,778  | 400        |
+| BM_SubmitOrder_Spread/threads:2             | 192 ns  | 190 ns  | 3,446,154  | 500        |
+| BM_SubmitOrder_Spread/threads:4             | 253 ns  | 256 ns  | 2,986,668  | 800        |
+| BM_SubmitOrder_Spread/threads:8             | 294 ns  | 279 ns  | 2,240,000  | 700        |

@@ -57,7 +57,7 @@ namespace ORDER_BOOK_PACKAGE {
     static constexpr uint32_t L1_WORDS                = (L0_WORDS + 63) / 64; // 16
     static constexpr uint32_t ORDER_POOL_INITIAL_CAP  = 1u << 14;           // 16384 resting orders to start
     static constexpr uint32_t ORDER_POOL_GROWTH_CHUNK = 1u << 14;           // grow by 16384 slots at a time
-    static constexpr uint32_t ORDER_POOL_MAX_CAP      = 1u << 24;           // ~16.7M hard ceiling
+    static constexpr uint32_t ORDER_POOL_MAX_CAP      = 1u << 24; 
     static constexpr uint32_t NIL                     = 0xFFFFFFFFu;
 
 
@@ -95,11 +95,7 @@ namespace ORDER_BOOK_PACKAGE {
         OrderNode& operator[](uint32_t idx) { return nodes[idx]; }
 
         private:
-        // Appends `count` new nodes to the end of `nodes` and links them onto
-        // the freelist. Existing indices are untouched by the vector growth -
-        // std::vector may reallocate its backing buffer, but callers only ever
-        // hold indices (never raw pointers/references across an acquire()),
-        // so nothing already resting in the book is invalidated.
+
         void grow(uint32_t count) {
             if (count == 0) return;
             size_t old_size = nodes.size();
@@ -223,20 +219,7 @@ namespace ORDER_BOOK_PACKAGE {
         std::array<uint64_t, L1_WORDS> l1{};
     };
 
-    // ---------------------------------------------------------------------
-    // Flat open-addressing table for the killed-order flags. Replaces
-    // std::unordered_map<LL,bool>, which is node-based and heap-allocates on
-    // every insert - that allocation was the dominant cost in SEND_ORDER
-    // even after the price-level logic became array-based. This is a single
-    // contiguous array: fibonacci hashing, linear probing, tombstones for
-    // deletion, doubling growth. No allocation on the hot path once warmed up.
-    //
-    // ASSUMPTION: order_id/del_id are always >= 0 (true for the sequential
-    // ids handed out by MARKET_BOOK::assign_order_id(), which starts at 1).
-    // Two keys are reserved as sentinels: -1 marks an empty slot, -2 marks a
-    // deleted one. If your ids can be negative, change these sentinels to
-    // values outside your id range.
-    // ---------------------------------------------------------------------
+
     class KillFlagTable {
         public:
         KillFlagTable() { rehash(1u << 12); } // 4096 slots to start
@@ -254,8 +237,6 @@ namespace ORDER_BOOK_PACKAGE {
             slots[idx].value = value;
         }
 
-        // Returns a pointer to the flag if present, else nullptr - use in
-        // place of `find(key) == end()` / `it->second`.
         bool* find(LL key) {
             uint32_t idx = locate_for_find(key);
             return (idx == INVALID) ? nullptr : &slots[idx].value;
@@ -296,10 +277,6 @@ namespace ORDER_BOOK_PACKAGE {
             }
         }
 
-        // Finds the slot to write `key` into: the existing slot with that
-        // key if present (to update in place), otherwise the first empty or
-        // tombstone slot along the probe sequence (to insert fresh, reusing
-        // tombstones so probe chains don't grow unbounded from churn).
         uint32_t locate_for_insert(LL key) {
             uint32_t idx = hash_key(key) & mask;
             uint32_t first_tombstone = INVALID;
@@ -313,9 +290,7 @@ namespace ORDER_BOOK_PACKAGE {
         }
 
         void maybe_grow() {
-            // Keep (live + tombstones) under ~60% load factor so probe
-            // chains stay short (O(1) amortized). +1 accounts for the
-            // insert about to happen.
+
             if ((static_cast<uint64_t>(live_count) + tombstone_count + 1) * 10 >= slots.size() * 6) {
                 rehash(static_cast<uint32_t>(slots.size() * 2));
             }
