@@ -317,9 +317,10 @@ Startup order matters — bring subscribers up first, then the server, then the 
 
 ### Marketbook Operation Benchmarks for same symbol operations.
 
+
 | Benchmark                                   | Time    | CPU     | Iterations |
 |---------------------------------------------|---------|---------|------------|
-| BM_SubmitOrder_SameSymbol/threads:1         | 143 ns  | 140 ns  | 5,600,000  | -> Baseline speed. Additional cores cause unnecessary amounts of CAS operation retries.
+| BM_SubmitOrder_SameSymbol/threads:1         | 143 ns  | 140 ns  | 5,600,000  |
 | BM_SubmitOrder_SameSymbol/threads:2         | 280 ns  | 279 ns  | 2,240,000  |
 | BM_SubmitOrder_SameSymbol/threads:4         | 779 ns  | 769 ns  | 1,056,336  |
 | BM_SubmitOrder_SameSymbol/threads:8         | 1359 ns | 1500 ns |   448,000  | 
@@ -330,7 +331,7 @@ Startup order matters — bring subscribers up first, then the server, then the 
 |---------------------------------------------|---------|---------|------------|
 | BM_SubmitOrder_Spread/threads:1             | 149 ns  | 148 ns  | 5,600,000  |
 | BM_SubmitOrder_Spread/threads:2             | 146 ns  | 148 ns  | 5,270,588  |
-| BM_SubmitOrder_Spread/threads:4             | 168 ns  | 164 ns  | 4,000,000  | -> Max core capacity where threads ran freely on individual threads.
-| BM_SubmitOrder_Spread/threads:8             | 280 ns  | 265 ns  | 4,014,080  | -> Introduces some context switches, hence the increase in runtime.
+| BM_SubmitOrder_Spread/threads:4             | 168 ns  | 164 ns  | 4,000,000  |
+| BM_SubmitOrder_Spread/threads:8             | 280 ns  | 265 ns  | 4,014,080  |
 
 
