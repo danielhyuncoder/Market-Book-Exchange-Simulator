@@ -327,7 +327,7 @@ Startup order matters — bring subscribers up first, then the server, then the 
 | BM_SubmitOrder_SameSymbol/threads:4         | 598 ns  | 596 ns  |   995,556  | 2300       |
 | BM_SubmitOrder_SameSymbol/threads:8         | 1167 ns | 1221 ns |   448,000  | 8187.5     |
 
-### Marketbook Operation Benchmarks for same symbol operations.
+### Marketbook Operation Benchmarks for different symbol operations.
 
 | Benchmark                                   | Time    | CPU     | Iterations | p99_ns     |
 |---------------------------------------------|---------|---------|------------|------------|
